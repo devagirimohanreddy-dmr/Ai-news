@@ -21,7 +21,7 @@ class Article(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     source_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("sources.id"), nullable=True, comment="NULL for user-submitted articles"
+        Integer, ForeignKey("sources.id", ondelete="SET NULL"), nullable=True, comment="NULL for user-submitted articles"
     )
     title: Mapped[str] = mapped_column(String(1024), nullable=False)
     url: Mapped[str] = mapped_column(String(2048), unique=True, nullable=False)

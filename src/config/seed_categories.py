@@ -12,7 +12,7 @@ import asyncio
 
 from sqlalchemy import select
 
-from src.models.base import async_session
+from src.models.base import get_session_factory
 from src.models.category import Category
 
 CATEGORIES = [
@@ -160,7 +160,8 @@ CATEGORIES = [
 
 async def seed_categories() -> None:
     """Insert categories into the database, skipping any that already exist."""
-    async with async_session() as session:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
         async with session.begin():
             for cat_data in CATEGORIES:
                 result = await session.execute(

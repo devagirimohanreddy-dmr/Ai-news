@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, Text, Boolean, DateTime, JSON, func
+from sqlalchemy import String, Integer, Text, Boolean, DateTime, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models.base import Base
@@ -22,7 +23,7 @@ class Source(Base):
     last_scraped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     error_count: Mapped[int] = mapped_column(Integer, default=0)
     config_json: Mapped[Optional[dict]] = mapped_column(
-        JSON, nullable=True, comment="Per-source config: API keys, CSS selectors, etc."
+        JSONB, nullable=True, comment="Per-source config: API keys, CSS selectors, etc."
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

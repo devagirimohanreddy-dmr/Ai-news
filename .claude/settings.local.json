@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash:*)",
+      "Bash(rm -rf \"M:/AI-News-Aggregator-Bot/.superpowers/brainstorm/1900-1776931802\")",
+      "Bash(PORT=8765 bash \"C:/Users/Admin-LFI/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh\" --project-dir \"M:/AI-News-Aggregator-Bot\")",
+      "WebSearch",
+      "WebFetch(domain:firecrawl.dev)",
+      "Bash(mkdir:*)",
+      "Bash(python -m alembic init alembic)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('src/config/seed_categories.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python -m alembic revision --autogenerate -m \"initial schema: sources, articles, categories, summaries, subscriptions, post_logs\")",
+      "Bash(pip install:*)",
+      "Bash(python -m pip install psycopg2-binary)",
+      "Bash(python -c \"import uuid; print\\(uuid.uuid4\\(\\).hex[:12]\\)\")",
+      "Bash(python -c ':*)",
+      "Bash(ls:*)",
+      "Bash(python -m pytest tests/unit/test_rss_scraper.py -v)",
+      "Bash(python -m pip install feedparser)",
+      "Bash(python -m pytest tests/unit/test_api_scrapers.py -v)",
+      "Bash(python -m pytest tests/unit/test_content_cleaner.py tests/unit/test_scraper_registry.py -v)",
+      "Bash(python -m pytest tests/unit/test_firecrawl_scraper.py tests/unit/test_playwright_scraper.py -v)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -m pip install markdownify python-readability feedparser httpx)",
+      "Bash(python -m pytest tests/ -v --ignore=tests/unit/test_content_cleaner.py)",
+      "Bash(python:*)",
+      "Bash(pip list:*)"
+    ]
+  }
+}

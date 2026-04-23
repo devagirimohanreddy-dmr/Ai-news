@@ -12,7 +12,7 @@ class Summary(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     article_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("articles.id"), nullable=False
+        Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False
     )
     headline: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     summary_text: Mapped[str] = mapped_column(Text, nullable=False)

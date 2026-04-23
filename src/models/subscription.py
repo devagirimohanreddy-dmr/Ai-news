@@ -15,7 +15,7 @@ class Subscription(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     teams_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
     category_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("categories.id"), nullable=False
+        Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
