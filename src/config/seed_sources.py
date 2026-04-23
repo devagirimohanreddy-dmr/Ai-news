@@ -153,6 +153,89 @@ INITIAL_SOURCES = [
         "priority": 3,
         "config_json": {"urls": ["https://ai.meta.com/blog/"]},
     },
+    # -----------------------------------------------------------------------
+    # Twitter / X
+    # -----------------------------------------------------------------------
+    {
+        "name": "Twitter AI News",
+        "url": "https://twitter.com/search?q=AI",
+        "scraper_type": "twitter",
+        "schedule_cron": "*/30 * * * *",
+        "priority": 2,
+        "config_json": {
+            "search_queries": [
+                "AI breakthrough",
+                "new AI model",
+                "LLM release",
+                "GPT",
+                "Claude AI",
+                "open source AI",
+            ],
+        },
+    },
+    # -----------------------------------------------------------------------
+    # YouTube AI channels
+    # -----------------------------------------------------------------------
+    {
+        "name": "YouTube AI Channels",
+        "url": "https://youtube.com",
+        "scraper_type": "youtube",
+        "schedule_cron": "0 */6 * * *",
+        "priority": 1,
+        "config_json": {
+            "channel_ids": [
+                "UCbfYPyITQ-7l4upoX8nvctg",  # Two Minute Papers
+                "UCZHmQk67mSJgfCCTn7xBfew",  # Yannic Kilcher
+                "UCNJ1Ymd5yFuUPtn21xtRbbw",  # AI Explained
+            ],
+        },
+    },
+    # -----------------------------------------------------------------------
+    # NewsAPI
+    # -----------------------------------------------------------------------
+    {
+        "name": "NewsAPI AI/Tech",
+        "url": "https://newsapi.org",
+        "scraper_type": "newsapi",
+        "schedule_cron": "*/60 * * * *",
+        "priority": 2,
+        "config_json": {
+            "queries": [
+                "artificial intelligence",
+                "machine learning",
+                "AI startup",
+            ],
+        },
+    },
+    # -----------------------------------------------------------------------
+    # Telegram AI channels
+    # -----------------------------------------------------------------------
+    {
+        "name": "Telegram AI Channels",
+        "url": "https://t.me",
+        "scraper_type": "telegram",
+        "schedule_cron": "*/60 * * * *",
+        "priority": 1,
+        "config_json": {
+            "channels": ["ai_newz", "DeepLearning_daily"],
+        },
+    },
+    # -----------------------------------------------------------------------
+    # LinkedIn AI companies
+    # -----------------------------------------------------------------------
+    {
+        "name": "LinkedIn AI Companies",
+        "url": "https://linkedin.com",
+        "scraper_type": "linkedin",
+        "schedule_cron": "0 */12 * * *",
+        "priority": 2,
+        "config_json": {
+            "company_urls": [
+                "https://www.linkedin.com/company/openai",
+                "https://www.linkedin.com/company/anthropic",
+            ],
+        },
+    },
 ]
 
 

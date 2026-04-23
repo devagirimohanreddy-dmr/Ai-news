@@ -34,6 +34,7 @@ dependencies = [
     "python-multipart",
     "aiohttp",
     "psycopg2-binary",
+    "tweepy",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -40,6 +40,14 @@ class ScraperRegistry:
         "old.reddit.com": "reddit",
         "arxiv.org": "api",
         "news.ycombinator.com": "api",
+        "twitter.com": "twitter",
+        "x.com": "twitter",
+        "www.youtube.com": "youtube",
+        "youtube.com": "youtube",
+        "newsapi.org": "newsapi",
+        "t.me": "telegram",
+        "linkedin.com": "linkedin",
+        "www.linkedin.com": "linkedin",
     }
 
     # ------------------------------------------------------------------ #
@@ -151,10 +159,20 @@ def _register_all() -> None:
     from src.scrapers.rss_scraper import RssScraper
     from src.scrapers.github_scraper import GitHubScraper
     from src.scrapers.reddit_scraper import RedditScraper
+    from src.scrapers.twitter_scraper import TwitterScraper
+    from src.scrapers.linkedin_scraper import LinkedInScraper
+    from src.scrapers.youtube_scraper import YouTubeScraper
+    from src.scrapers.newsapi_scraper import NewsApiScraper
+    from src.scrapers.telegram_scraper import TelegramScraper
 
     ScraperRegistry.register("rss", RssScraper)
     ScraperRegistry.register("github", GitHubScraper)
     ScraperRegistry.register("reddit", RedditScraper)
+    ScraperRegistry.register("twitter", TwitterScraper)
+    ScraperRegistry.register("linkedin", LinkedInScraper)
+    ScraperRegistry.register("youtube", YouTubeScraper)
+    ScraperRegistry.register("newsapi", NewsApiScraper)
+    ScraperRegistry.register("telegram", TelegramScraper)
 
     # Future scrapers — register as they become available:
     # from src.scrapers.playwright_scraper import PlaywrightScraper
