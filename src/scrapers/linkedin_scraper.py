@@ -1,191 +1,121 @@
-"""LinkedIn scraper — fetches AI company updates from public LinkedIn pages."""
+"""LinkedIn scraper — fetches AI company news via Google News RSS (LinkedIn requires auth).
 
+Since LinkedIn blocks unauthenticated access, this scraper uses Google News RSS
+to find recent news *about* the configured companies. This gives us the same
+company intelligence without needing LinkedIn credentials.
+"""
+
+import asyncio
 import logging
-import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any
+import time as _time
 
-import httpx
+import feedparser
 
 from src.scrapers.base import BaseScraper, RawArticle
 
 logger = logging.getLogger(__name__)
+_executor = ThreadPoolExecutor(max_workers=2)
 
-# CSS-like selectors implemented via regex for the public LinkedIn page HTML.
-# LinkedIn public company pages expose some post content without authentication.
-_POST_BLOCK_RE = re.compile(
-    r'<div[^>]*class="[^"]*feed-shared-update[^"]*"[^>]*>(.*?)</div>\s*</div>\s*</div>',
-    re.DOTALL,
-)
-_POST_TEXT_RE = re.compile(
-    r'<span[^>]*class="[^"]*break-words[^"]*"[^>]*>(.*?)</span>',
-    re.DOTALL,
-)
-_POST_TIME_RE = re.compile(
-    r'<time[^>]*datetime="([^"]+)"',
-)
-_POST_IMAGE_RE = re.compile(
-    r'<img[^>]+data-delayed-url="([^"]+)"',
-)
-_ARTICLE_LINK_RE = re.compile(
-    r'<a[^>]+href="(https://www\.linkedin\.com/(?:pulse|posts)/[^"]+)"',
-)
-_COMPANY_NAME_RE = re.compile(
-    r'<h1[^>]*>(.*?)</h1>',
-    re.DOTALL,
-)
-
-
-def _clean_html(text: str) -> str:
-    """Strip HTML tags and collapse whitespace."""
-    cleaned = re.sub(r"<[^>]+>", " ", text)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    return cleaned
+# Google News RSS endpoint for search queries
+_GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 
 
 class LinkedInScraper(BaseScraper):
-    """Scrapes AI company updates from LinkedIn public pages.
+    """Fetches company AI news via Google News RSS as a proxy for LinkedIn.
 
     Config keys:
-        company_urls: List of LinkedIn company page URLs to monitor.
+        company_names: List of company names to search for (e.g. ["OpenAI", "Anthropic"])
+        company_urls: Legacy — extracts company name from URL path.
     """
 
     SOURCE_NAME = "linkedin"
 
     def __init__(self, source_config: dict[str, Any] | None = None) -> None:
         super().__init__(source_config)
-        self._company_urls: list[str] = self.config.get("company_urls", [])
-        self._client: httpx.AsyncClient | None = None
+        # Support both company_names (preferred) and company_urls (legacy)
+        self._company_names: list[str] = self.config.get("company_names", [])
+        if not self._company_names:
+            # Extract names from URLs: https://linkedin.com/company/openai -> "OpenAI"
+            for url in self.config.get("company_urls", []):
+                name = url.rstrip("/").split("/")[-1].replace("-", " ").title()
+                self._company_names.append(name)
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
+    async def scrape(self) -> list[RawArticle]:
+        if not self._company_names:
+            logger.warning("No company names configured for LinkedInScraper")
+            return []
 
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/124.0.0.0 Safari/537.36"
-                    ),
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
-                timeout=30.0,
-                follow_redirects=True,
-            )
-        return self._client
-
-    @staticmethod
-    def _normalize_company_url(url: str) -> str:
-        """Ensure URL points to the company's posts feed."""
-        url = url.rstrip("/")
-        if not url.endswith("/posts"):
-            url += "/posts"
-        return url
-
-    async def _fetch_company(self, company_url: str) -> list[RawArticle]:
-        """Fetch and parse posts from a single LinkedIn company page."""
         articles: list[RawArticle] = []
-        client = await self._get_client()
-        posts_url = self._normalize_company_url(company_url)
+        seen_urls: set[str] = set()
+        loop = asyncio.get_running_loop()
 
-        try:
-            response = await client.get(posts_url)
+        for company in self._company_names:
+            query = f"{company} AI"
+            feed_url = _GOOGLE_NEWS_RSS.format(query=query.replace(" ", "+"))
 
-            if response.status_code != 200:
-                logger.warning(
-                    "LinkedIn request failed for %s: %s", company_url, response.status_code
+            try:
+                feed = await asyncio.wait_for(
+                    loop.run_in_executor(_executor, feedparser.parse, feed_url),
+                    timeout=30,
                 )
-                return articles
+            except asyncio.TimeoutError:
+                logger.error("Timeout fetching Google News for %s", company)
+                continue
+            except Exception:
+                logger.exception("Error fetching Google News for %s", company)
+                continue
 
-            html = response.text
-
-            # Try to extract company name from page
-            company_match = _COMPANY_NAME_RE.search(html)
-            company_name = _clean_html(company_match.group(1)) if company_match else company_url.split("/")[-1]
-
-            # Extract article/post links
-            article_links = _ARTICLE_LINK_RE.findall(html)
-
-            # Extract post text blocks
-            post_blocks = _POST_TEXT_RE.findall(html)
-            post_times = _POST_TIME_RE.findall(html)
-            post_images = _POST_IMAGE_RE.findall(html)
-
-            # Build articles from extracted content
-            num_posts = max(len(post_blocks), len(article_links))
-            for i in range(num_posts):
-                text = _clean_html(post_blocks[i]) if i < len(post_blocks) else ""
-                if not text and i < len(article_links):
-                    text = f"LinkedIn post: {article_links[i]}"
-
-                if not text or len(text) < 20:
+            for entry in feed.get("entries", [])[:10]:
+                link = getattr(entry, "link", "")
+                if not link or link in seen_urls:
                     continue
+                seen_urls.add(link)
 
-                # Determine URL
-                post_url = article_links[i] if i < len(article_links) else f"{posts_url}#post-{i}"
+                title = getattr(entry, "title", "")
+                content = getattr(entry, "summary", "") or getattr(entry, "description", "")
 
-                # Parse time
-                published_at: datetime | None = None
-                if i < len(post_times):
-                    try:
-                        published_at = datetime.fromisoformat(
-                            post_times[i].replace("Z", "+00:00")
-                        )
-                    except (ValueError, TypeError):
-                        pass
+                # Parse published date
+                published_at = None
+                for attr in ("published_parsed", "updated_parsed"):
+                    ts = getattr(entry, attr, None)
+                    if ts:
+                        try:
+                            published_at = datetime.fromtimestamp(
+                                _time.mktime(ts), tz=timezone.utc
+                            )
+                        except (OverflowError, OSError, ValueError):
+                            pass
+                        break
 
-                # Image
-                image_url = post_images[i] if i < len(post_images) else None
-
-                # Title from first ~80 chars of text
-                title = text[:80].strip()
-                if len(text) > 80:
-                    title += "..."
+                source_name = getattr(entry, "source", {})
+                if hasattr(source_name, "get"):
+                    source_name = source_name.get("title", "Google News")
+                else:
+                    source_name = "Google News"
 
                 articles.append(
                     RawArticle(
-                        title=f"[LinkedIn] {company_name}: {title}",
-                        url=post_url,
-                        raw_content=text,
+                        title=f"[{company}] {title}",
+                        url=link,
+                        raw_content=content,
                         source_name=self.SOURCE_NAME,
                         published_at=published_at,
-                        author=company_name,
+                        author=source_name,
                         metadata={
-                            "company_url": company_url,
-                            "company_name": company_name,
-                            "image_url": image_url,
+                            "company_name": company,
+                            "original_source": source_name,
                         },
                     )
                 )
 
-        except httpx.HTTPError as exc:
-            logger.error("HTTP error fetching LinkedIn %s: %s", company_url, exc)
-        except Exception:
-            logger.exception("Unexpected error parsing LinkedIn page %s", company_url)
-
-        return articles
-
-    # ------------------------------------------------------------------
-    # Public interface
-    # ------------------------------------------------------------------
-
-    async def scrape(self) -> list[RawArticle]:
-        """Fetch posts from all configured LinkedIn company pages."""
-        articles: list[RawArticle] = []
-        try:
-            for url in self._company_urls:
-                company_articles = await self._fetch_company(url)
-                articles.extend(company_articles)
-        except Exception:
-            logger.exception("Unexpected error in LinkedInScraper.scrape")
-
-        logger.info("Fetched %d posts from %d LinkedIn companies", len(articles), len(self._company_urls))
+        logger.info(
+            "Fetched %d articles about %d companies via Google News",
+            len(articles), len(self._company_names),
+        )
         return articles
 
     async def close(self) -> None:
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
-            self._client = None
+        pass

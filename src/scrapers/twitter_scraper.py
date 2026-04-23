@@ -86,10 +86,63 @@ class TwitterScraper(BaseScraper):
     # Public interface
     # ------------------------------------------------------------------
 
+    async def _scrape_via_google_news(self) -> list[RawArticle]:
+        """Fallback: search Google News RSS for Twitter/AI topics when no API key."""
+        import feedparser
+        import time as _time
+
+        articles: list[RawArticle] = []
+        seen_urls: set[str] = set()
+        loop = asyncio.get_running_loop()
+
+        for query in self._queries[:3]:  # limit queries for fallback
+            feed_url = f"https://news.google.com/rss/search?q={query.replace(' ', '+')}+site:x.com+OR+site:twitter.com&hl=en-US&gl=US&ceid=US:en"
+            try:
+                feed = await asyncio.wait_for(
+                    loop.run_in_executor(None, feedparser.parse, feed_url),
+                    timeout=30,
+                )
+            except Exception:
+                continue
+
+            for entry in feed.get("entries", [])[:10]:
+                link = getattr(entry, "link", "")
+                if not link or link in seen_urls:
+                    continue
+                seen_urls.add(link)
+
+                title = getattr(entry, "title", "")
+                content = getattr(entry, "summary", "")
+                published_at = None
+                for attr in ("published_parsed", "updated_parsed"):
+                    ts = getattr(entry, attr, None)
+                    if ts:
+                        try:
+                            published_at = datetime.fromtimestamp(_time.mktime(ts), tz=timezone.utc)
+                        except Exception:
+                            pass
+                        break
+
+                articles.append(
+                    RawArticle(
+                        title=title,
+                        url=link,
+                        raw_content=content,
+                        source_name=self.SOURCE_NAME,
+                        published_at=published_at,
+                        author="Google News (Twitter fallback)",
+                        metadata={"search_query": query, "fallback": True},
+                    )
+                )
+
+        logger.info("Fallback: fetched %d articles via Google News", len(articles))
+        return articles
+
     async def scrape(self) -> list[RawArticle]:
         """Fetch recent tweets matching configured search queries."""
         if not self._bearer_token:
-            return []
+            logger.info("No Twitter API key — using Google News fallback")
+            return await self._scrape_via_google_news()
 
         articles: list[RawArticle] = []
         seen_ids: set[str] = set()
