@@ -12,10 +12,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      firecrawl:
-        condition: service_started
-      ollama:
-        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

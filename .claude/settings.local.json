@@ -24,7 +24,15 @@
       "Bash(python -m pip install markdownify python-readability feedparser httpx)",
       "Bash(python -m pytest tests/ -v --ignore=tests/unit/test_content_cleaner.py)",
       "Bash(python:*)",
-      "Bash(pip list:*)"
+      "Bash(pip list:*)",
+      "Bash(where python:*)",
+      "Bash(.venv/Scripts/python.exe -m pip install -e \".[dev]\")",
+      "Bash(.venv/Scripts/python.exe -m pip install --upgrade pip)",
+      "Bash(docker --version)",
+      "Bash(docker compose:*)",
+      "Bash(curl -s http://localhost:8080/health)",
+      "Bash(curl -s http://localhost:8080/admin/)",
+      "Bash(curl:*)"
     ]
   }
 }

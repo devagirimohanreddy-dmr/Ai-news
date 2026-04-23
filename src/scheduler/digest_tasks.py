@@ -23,7 +23,7 @@ _TOP_STORIES_COUNT = 5
 async def _generate_daily_digest_async() -> dict:
     """Core async logic for building the daily digest."""
     session_factory = get_session_factory()
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     cutoff = now - timedelta(hours=24)
 
     async with session_factory() as session:

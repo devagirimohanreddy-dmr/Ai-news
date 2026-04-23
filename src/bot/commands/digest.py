@@ -27,7 +27,8 @@ async def handle_digest(session: AsyncSession, args: str) -> dict[str, Any]:
         A dict with ``"card"`` (Adaptive Card dict) and ``"text"`` (fallback).
     """
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        # Use naive datetime to match TIMESTAMP WITHOUT TIME ZONE column
+        cutoff = datetime.utcnow() - timedelta(hours=24)
 
         # Query articles from the last 24 hours
         stmt = (

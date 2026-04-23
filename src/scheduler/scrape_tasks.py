@@ -57,7 +57,7 @@ async def _scrape_source_async(source_id: int) -> dict:
             processed = await pipeline.process_batch(raw_articles)
 
             # Update source metadata on success.
-            source.last_scraped_at = datetime.now(timezone.utc)
+            source.last_scraped_at = datetime.utcnow()
             source.error_count = 0
             await session.commit()
 

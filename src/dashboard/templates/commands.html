@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% set active_page = "commands" %}
+
+{% block title %}Command Tester{% endblock %}
+
+{% block content %}
+<h1>Command Tester</h1>
+<p class="text-muted text-sm" style="margin-top:-.5rem; margin-bottom:1rem;">
+    Test bot commands without Microsoft Teams. Results are rendered as Adaptive Card-style cards.
+</p>
+
+<!-- Command Input -->
+<div class="command-input-area">
+    <div class="input-row">
+        <input type="text" id="cmd-input" placeholder="Type a command (e.g. /latest, /search transformer, /help)..."
+               autocomplete="off" spellcheck="false">
+        <button class="btn-execute" id="cmd-execute" onclick="executeCommand()">Execute</button>
+    </div>
+    <div class="quick-commands">
+        <span class="text-sm text-muted" style="padding:.25rem 0;">Quick:</span>
+        <button onclick="setCmd('/latest')">/latest</button>
+        <button onclick="setCmd('/search AI')">/search AI</button>
+        <button onclick="setCmd('/subscribe')">/subscribe</button>
+        <button onclick="setCmd('/digest now')">/digest now</button>
+        <button onclick="setCmd('/help')">/help</button>
+        <button onclick="setCmd('/settings')">/settings</button>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="command-results" id="cmd-results"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setCmd(cmd) {
+    document.getElementById('cmd-input').value = cmd;
+    document.getElementById('cmd-input').focus();
+}
+
+document.getElementById('cmd-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') executeCommand();
+});
+
+function executeCommand() {
+    var input = document.getElementById('cmd-input');
+    var command = input.value.trim();
+    if (!command) return;
+
+    // Prepend / if missing
+    if (!command.startsWith('/')) command = '/' + command;
+
+    var btn = document.getElementById('cmd-execute');
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+
+    // Add loading indicator
+    var results = document.getElementById('cmd-results');
+    var loadingId = 'loading-' + Date.now();
+    var loadingHtml = '<div id="' + loadingId + '" class="command-result-item">';
+    loadingHtml += '<div class="result-header"><span class="cmd-text">' + escapeHtml(command) + '</span><span>executing...</span></div>';
+    loadingHtml += '<div class="result-body"><div class="cmd-loading"><div class="spinner"></div>Processing command...</div></div>';
+    loadingHtml += '</div>';
+    results.insertAdjacentHTML('afterbegin', loadingHtml);
+
+    fetch('/admin/api/commands/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: command })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        // Remove loading indicator
+        var loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+
+        // Render result
+        var html = renderResult(command, data);
+        results.insertAdjacentHTML('afterbegin', html);
+    })
+    .catch(function(err) {
+        var loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+
+        var html = '<div class="command-result-item">';
+        html += '<div class="result-header"><span class="cmd-text">' + escapeHtml(command) + '</span><span>error</span></div>';
+        html += '<div class="result-body"><div class="result-text" style="color:var(--color-danger);">Error: ' + escapeHtml(err.message || 'Network error') + '</div></div>';
+        html += '</div>';
+        results.insertAdjacentHTML('afterbegin', html);
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Execute';
+    });
+}
+
+function renderResult(command, data) {
+    var html = '<div class="command-result-item">';
+    html += '<div class="result-header"><span class="cmd-text">' + escapeHtml(command) + '</span><span>' + new Date().toLocaleTimeString() + '</span></div>';
+    html += '<div class="result-body">';
+
+    // Text response
+    if (data.text) {
+        html += '<div class="result-text">' + escapeHtml(data.text) + '</div>';
+    }
+
+    // Render cards (article cards)
+    if (data.cards && data.cards.length > 0) {
+        for (var i = 0; i < data.cards.length; i++) {
+            html += renderAdaptiveCard(data.cards[i]);
+        }
+    }
+
+    // Render single card
+    if (data.card) {
+        html += renderAdaptiveCard(data.card);
+    }
+
+    html += '</div></div>';
+    return html;
+}
+
+function renderAdaptiveCard(card) {
+    if (!card || !card.body) return '';
+    var html = '<div class="teams-card" style="cursor:default; margin-bottom:.75rem;">';
+
+    // Determine accent color
+    var accentClass = 'accent-blue';
+    var bodyText = JSON.stringify(card.body).toLowerCase();
+    if (bodyText.indexOf('breaking') >= 0 || bodyText.indexOf('digest') >= 0) {
+        if (bodyText.indexOf('digest') >= 0) accentClass = 'accent-green';
+        else accentClass = 'accent-red';
+    }
+
+    html += '<div class="card-accent ' + accentClass + '"></div>';
+    html += '<div class="card-body">';
+
+    // Render body elements
+    for (var i = 0; i < card.body.length; i++) {
+        html += renderCardElement(card.body[i]);
+    }
+
+    // Render actions
+    if (card.actions && card.actions.length > 0) {
+        html += '<div class="card-actions">';
+        for (var j = 0; j < card.actions.length; j++) {
+            var action = card.actions[j];
+            if (action.type === 'Action.OpenUrl') {
+                html += '<a href="' + escapeHtml(action.url || '') + '" target="_blank" class="btn-primary" onclick="event.stopPropagation();">' + escapeHtml(action.title || 'Open') + '</a>';
+            } else {
+                html += '<button class="btn-outline" onclick="event.stopPropagation();">' + escapeHtml(action.title || 'Action') + '</button>';
+            }
+        }
+        html += '</div>';
+    }
+
+    html += '</div></div>';
+    return html;
+}
+
+function renderCardElement(el) {
+    if (!el || !el.type) return '';
+    var html = '';
+
+    if (el.type === 'TextBlock') {
+        var tag = 'p';
+        var style = 'margin:0; padding:.1rem 0;';
+        if (el.weight === 'Bolder') style += ' font-weight:700;';
+        if (el.size === 'Large') style += ' font-size:1.1rem;';
+        else if (el.size === 'Medium') style += ' font-size:.95rem;';
+        else if (el.size === 'Small') style += ' font-size:.82rem;';
+        else style += ' font-size:.88rem;';
+        if (el.isSubtle) style += ' color:var(--color-muted);';
+        if (el.color === 'Accent') style += ' color:var(--color-accent);';
+        if (el.separator) style += ' border-top:1px solid #e2e8f0; padding-top:.5rem; margin-top:.5rem;';
+        var text = el.text || '';
+        // Convert markdown links [text](url)
+        text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+        // Convert **bold**
+        text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        // Convert `code`
+        text = text.replace(/`([^`]+)`/g, '<code style="background:#f1f5f9;padding:.1em .3em;border-radius:3px;font-size:.85em;">$1</code>');
+        html += '<' + tag + ' style="' + style + '">' + text + '</' + tag + '>';
+    }
+
+    if (el.type === 'FactSet' && el.facts) {
+        html += '<div style="display:grid; grid-template-columns:auto 1fr; gap:.25rem .75rem; font-size:.85rem; padding:.25rem 0;">';
+        for (var i = 0; i < el.facts.length; i++) {
+            html += '<strong style="color:#475569;">' + escapeHtml(el.facts[i].title || '') + '</strong>';
+            html += '<span>' + escapeHtml(el.facts[i].value || '') + '</span>';
+        }
+        html += '</div>';
+    }
+
+    if (el.type === 'Container' && el.items) {
+        var cStyle = 'padding:.25rem 0;';
+        if (el.isVisible === false) cStyle += ' display:none;';
+        var cId = el.id ? ' id="card-' + escapeHtml(el.id) + '"' : '';
+        html += '<div' + cId + ' style="' + cStyle + '">';
+        for (var j = 0; j < el.items.length; j++) {
+            html += renderCardElement(el.items[j]);
+        }
+        html += '</div>';
+    }
+
+    if (el.type === 'ColumnSet' && el.columns) {
+        html += '<div style="display:flex; gap:.75rem; padding:.15rem 0;">';
+        for (var k = 0; k < el.columns.length; k++) {
+            var col = el.columns[k];
+            var colStyle = col.width === 'stretch' ? 'flex:1;' : '';
+            html += '<div style="' + colStyle + '">';
+            if (col.items) {
+                for (var l = 0; l < col.items.length; l++) {
+                    html += renderCardElement(col.items[l]);
+                }
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+
+    return html;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

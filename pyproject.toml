@@ -33,6 +33,7 @@ dependencies = [
     "jinja2",
     "python-multipart",
     "aiohttp",
+    "psycopg2-binary",
 ]
 
 [tool.hatch.build.targets.wheel]

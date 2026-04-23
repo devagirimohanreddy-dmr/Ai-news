@@ -19,8 +19,8 @@ router = APIRouter(prefix="/admin/api/stats", tags=["dashboard-stats"])
 
 
 def _today_start() -> datetime:
-    """Return midnight UTC of the current day."""
-    return datetime.combine(datetime.now(timezone.utc).date(), time.min, tzinfo=timezone.utc)
+    """Return midnight UTC of the current day (naive, matching DB column)."""
+    return datetime.combine(datetime.now(timezone.utc).date(), time.min)
 
 
 @router.get("")
