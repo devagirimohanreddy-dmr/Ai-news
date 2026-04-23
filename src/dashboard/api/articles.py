@@ -36,6 +36,7 @@ def _article_to_dict(article: Article, *, detail: bool = False) -> dict:
         "is_breaking": article.is_breaking,
         "pipeline_status": article.pipeline_status,
         "published_at": article.published_at.isoformat() if article.published_at else None,
+        "image_url": article.image_url,
         "created_at": article.created_at.isoformat() if article.created_at else None,
     }
     if detail:

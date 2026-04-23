@@ -63,6 +63,13 @@
     </div>
 </div>
 
+<!-- Article Image -->
+{% if article.image_url %}
+<div class="article-hero-image" style="margin-bottom:1.5rem;">
+    <img src="{{ article.image_url }}" alt="{{ article.title }}" style="max-width:100%; max-height:400px; border-radius:8px; object-fit:cover; display:block;">
+</div>
+{% endif %}
+
 <!-- AI Summary -->
 {% if article.summaries and article.summaries|length > 0 %}
 {% for s in article.summaries %}

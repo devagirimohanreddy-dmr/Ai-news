@@ -38,6 +38,7 @@ class Article(Base):
         default="ingested",
         comment="ingested | deduped | classified | scored | summarized | routed",
     )
+    image_url: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )

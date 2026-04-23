@@ -183,6 +183,11 @@ function loadArticles() {
                 cardsHtml += '<div class="card-accent ' + accentClass + '"></div>';
                 cardsHtml += '<div class="card-body">';
 
+                // Image
+                if (a.image_url) {
+                    cardsHtml += '<div class="card-image"><img src="' + escapeHtml(a.image_url) + '" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'"></div>';
+                }
+
                 // Title
                 cardsHtml += '<div class="card-title">' + escapeHtml(a.title) + '</div>';
 

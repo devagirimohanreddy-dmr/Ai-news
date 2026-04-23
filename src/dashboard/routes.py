@@ -126,6 +126,7 @@ async def article_detail_page(
         "categories": categories,
         "summaries": summaries,
         "markdown_content": article_obj.markdown_content,
+        "image_url": article_obj.image_url,
     }
 
     return templates.TemplateResponse(

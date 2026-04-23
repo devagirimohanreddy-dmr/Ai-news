@@ -80,6 +80,47 @@ def _extract_tags(entry: Any) -> list[str]:
     return [t.get("term", "") for t in tags if t.get("term")]
 
 
+def _extract_image(entry: Any) -> str | None:
+    """Extract the best image URL from a feed entry.
+
+    Tries media_thumbnail, media_content, enclosures, and og:image in content.
+    """
+    # media:thumbnail (common in RSS 2.0)
+    thumbs = getattr(entry, "media_thumbnail", None)
+    if thumbs:
+        for t in thumbs:
+            url = t.get("url", "")
+            if url:
+                return url
+
+    # media:content
+    media = getattr(entry, "media_content", None)
+    if media:
+        for m in media:
+            if m.get("medium") == "image" or (m.get("type", "").startswith("image/")):
+                return m.get("url", "")
+            # Some feeds use media_content without type
+            url = m.get("url", "")
+            if url and any(ext in url.lower() for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]):
+                return url
+
+    # Enclosures (RSS 2.0)
+    enclosures = getattr(entry, "enclosures", [])
+    for enc in enclosures:
+        if enc.get("type", "").startswith("image/"):
+            return enc.get("href", "") or enc.get("url", "")
+
+    # Try to find <img> in content
+    content = _extract_content(entry)
+    if content:
+        import re
+        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', content)
+        if img_match:
+            return img_match.group(1)
+
+    return None
+
+
 class RssScraper(BaseScraper):
     """Scraper for RSS 2.0 and Atom feeds using :mod:`feedparser`."""
 
@@ -157,6 +198,7 @@ class RssScraper(BaseScraper):
                         metadata={
                             "tags": _extract_tags(entry),
                             "feed_title": feed_title,
+                            "image_url": _extract_image(entry),
                         },
                     )
                 )

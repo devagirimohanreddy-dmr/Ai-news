@@ -774,3 +774,16 @@ body {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+/* Card images */
+.card-image {
+    margin: -0.75rem -0.75rem 0.75rem -0.75rem;
+    overflow: hidden;
+    border-radius: 6px 6px 0 0;
+}
+.card-image img {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    display: block;
+}

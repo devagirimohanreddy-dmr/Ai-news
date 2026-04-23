@@ -20,6 +20,7 @@ services:
       start_period: 15s
     volumes:
       - ./src:/app/src  # dev hot reload
+      - ./alembic:/app/alembic  # dev migrations
 
   # ---------------------------------------------------------------------------
   # Celery worker with embedded beat scheduler
