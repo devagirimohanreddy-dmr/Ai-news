@@ -21,6 +21,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import JSON, event
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -63,6 +65,17 @@ async def async_engine():
         poolclass=StaticPool,
         connect_args={"check_same_thread": False},
     )
+
+    # Map PostgreSQL JSONB to generic JSON so SQLite can handle it
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, connection_record):
+        pass  # placeholder for any SQLite pragmas
+
+    # Patch JSONB columns to render as JSON for SQLite
+    for table in Base.metadata.tables.values():
+        for col in table.columns:
+            if isinstance(col.type, JSONB):
+                col.type = JSON()
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

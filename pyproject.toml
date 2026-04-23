@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "ai-news-aggregator-bot"
 version = "0.1.0"
 description = "AI-powered news aggregator bot with Teams integration"
-requires-python = ">= 3.12"
+requires-python = ">= 3.11"
 dependencies = [
     "fastapi",
     "uvicorn",
@@ -35,6 +35,9 @@ dependencies = [
     "aiohttp",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
 [project.optional-dependencies]
 dev = [
     "pytest",
@@ -42,4 +45,5 @@ dev = [
     "pytest-cov",
     "ruff",
     "mypy",
+    "aiosqlite",
 ]
