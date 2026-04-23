@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin{% endblock %} - AI News Bot</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="/admin/static/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body>
+<div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">AI News Bot Admin</div>
+        <nav>
+            <a href="/admin/" class="{% if active_page == 'overview' %}active{% endif %}">
+                &#9632; Overview
+            </a>
+            <a href="/admin/sources" class="{% if active_page == 'sources' %}active{% endif %}">
+                &#9881; Sources
+            </a>
+            <a href="/admin/articles" class="{% if active_page == 'articles' %}active{% endif %}">
+                &#9997; Articles
+            </a>
+            <a href="/admin/categories" class="{% if active_page == 'categories' %}active{% endif %}">
+                &#9776; Categories
+            </a>
+            <a href="/admin/logs" class="{% if active_page == 'logs' %}active{% endif %}">
+                &#9998; Logs
+            </a>
+            <a href="/admin/settings" class="{% if active_page == 'settings' %}active{% endif %}">
+                &#9881; Settings
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <div id="flash-area"></div>
+        {% block content %}{% endblock %}
+    </main>
+</div>
+
+<script>
+// Global HTMX event helpers
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    if (evt.detail.successful) {
+        var flash = document.getElementById('flash-area');
+        // Only show success for mutating requests
+        if (['POST','PUT','DELETE'].includes(evt.detail.requestConfig.verb.toUpperCase())) {
+            flash.innerHTML = '<div class="flash-success">Operation completed successfully.</div>';
+            setTimeout(function(){ flash.innerHTML = ''; }, 3000);
+        }
+    }
+});
+document.body.addEventListener('htmx:responseError', function(evt) {
+    var flash = document.getElementById('flash-area');
+    flash.innerHTML = '<div class="flash-error">Error: ' + (evt.detail.xhr.status || 'unknown') + '</div>';
+    setTimeout(function(){ flash.innerHTML = ''; }, 5000);
+});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

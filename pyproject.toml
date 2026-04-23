@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-news-aggregator-bot"
+version = "0.1.0"
+description = "AI-powered news aggregator bot with Teams integration"
+requires-python = ">= 3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "alembic",
+    "asyncpg",
+    "celery",
+    "redis",
+    "feedparser",
+    "requests",
+    "playwright",
+    "python-readability",
+    "markdownify",
+    "openai",
+    "anthropic",
+    "google-generativeai",
+    "botbuilder-core",
+    "botbuilder-integration-aiohttp",
+    "pydantic",
+    "pydantic-settings",
+    "structlog",
+    "httpx",
+    "simhash",
+    "jinja2",
+    "python-multipart",
+    "aiohttp",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
+    "mypy",
+]

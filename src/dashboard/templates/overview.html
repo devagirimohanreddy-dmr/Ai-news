@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set active_page = "overview" %}
+
+{% block title %}Overview{% endblock %}
+
+{% block content %}
+<h1>Dashboard Overview</h1>
+
+<div id="stats-area"
+     hx-get="/admin/api/stats"
+     hx-trigger="load, every 30s"
+     hx-swap="innerHTML">
+    <div class="stats-grid">
+        <div class="stat-card"><div class="label">Articles Today</div><div class="value">--</div></div>
+        <div class="stat-card"><div class="label">Active Sources</div><div class="value">--</div></div>
+        <div class="stat-card"><div class="label">Total Sources</div><div class="value">--</div></div>
+        <div class="stat-card"><div class="label">Scrape Success Rate</div><div class="value">--%</div></div>
+        <div class="stat-card"><div class="label">Breaking Alerts Today</div><div class="value">--</div></div>
+    </div>
+    <p class="text-muted text-sm">Loading...</p>
+</div>
+
+<h2>Articles by Category (Today)</h2>
+<div id="category-chart"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Process the JSON stats response and render HTML
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+    if (evt.detail.target.id !== 'stats-area') return;
+    try {
+        var data = JSON.parse(evt.detail.xhr.responseText);
+        var html = '<div class="stats-grid">';
+        html += '<div class="stat-card"><div class="label">Articles Today</div><div class="value">' + data.total_articles_today + '</div></div>';
+        html += '<div class="stat-card"><div class="label">Active Sources</div><div class="value">' + data.active_sources + '</div></div>';
+        html += '<div class="stat-card"><div class="label">Total Sources</div><div class="value">' + data.total_sources + '</div></div>';
+        html += '<div class="stat-card"><div class="label">Scrape Success Rate</div><div class="value">' + data.scrape_success_rate + '%</div></div>';
+        html += '<div class="stat-card"><div class="label">Breaking Alerts Today</div><div class="value">' + data.breaking_alerts_today + '</div></div>';
+        html += '</div>';
+
+        // Category chart (simple bar list)
+        var cats = data.articles_by_category || {};
+        var keys = Object.keys(cats);
+        if (keys.length > 0) {
+            var maxVal = Math.max.apply(null, keys.map(function(k){ return cats[k]; })) || 1;
+            html += '<div class="table-wrap" style="margin-top:1rem;padding:1rem;">';
+            keys.forEach(function(k) {
+                var pct = Math.round(cats[k] / maxVal * 100);
+                html += '<div style="margin-bottom:.5rem;">';
+                html += '<div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.15rem;"><span>' + k + '</span><span>' + cats[k] + '</span></div>';
+                html += '<div style="background:#e2e8f0;border-radius:4px;height:8px;"><div style="background:#3b82f6;height:8px;border-radius:4px;width:' + pct + '%;"></div></div>';
+                html += '</div>';
+            });
+            html += '</div>';
+        } else {
+            html += '<p class="text-muted text-sm">No articles categorized today.</p>';
+        }
+
+        html += '<p class="text-muted text-sm" style="margin-top:.75rem;">Last refreshed: ' + new Date().toLocaleTimeString() + '</p>';
+
+        evt.detail.serverResponse = html;
+    } catch(e) {
+        // If it's not JSON, let HTMX handle normally
+    }
+});
+</script>
+{% endblock %}

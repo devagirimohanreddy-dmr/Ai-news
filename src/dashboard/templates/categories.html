@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% set active_page = "categories" %}
+
+{% block title %}Categories{% endblock %}
+
+{% block content %}
+<h1>Categories</h1>
+
+<!-- Add Category Form -->
+<details style="margin-bottom:1rem;">
+    <summary role="button" class="outline">+ Add New Category</summary>
+    <form id="add-category-form" style="margin-top:.75rem;">
+        <div class="form-grid">
+            <div>
+                <label for="cat-name">Name</label>
+                <input type="text" id="cat-name" required placeholder="Category name">
+            </div>
+            <div>
+                <label for="cat-desc">Description</label>
+                <input type="text" id="cat-desc" placeholder="Short description">
+            </div>
+            <div>
+                <label for="cat-keywords">Keywords (comma-separated)</label>
+                <input type="text" id="cat-keywords" placeholder="ai, ml, deep learning">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit">Add Category</button>
+        </div>
+    </form>
+</details>
+
+<!-- Categories Table -->
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Keywords</th>
+                <th>Articles</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="categories-table-body">
+            <tr><td colspan="6" class="text-muted">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Inline edit modal -->
+<dialog id="edit-category-dialog">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('edit-category-dialog').close();"></button>
+            <h3>Edit Category</h3>
+        </header>
+        <form id="edit-category-form">
+            <input type="hidden" id="edit-cat-id">
+            <div>
+                <label for="edit-cat-name">Name</label>
+                <input type="text" id="edit-cat-name" required>
+            </div>
+            <div>
+                <label for="edit-cat-desc">Description</label>
+                <input type="text" id="edit-cat-desc">
+            </div>
+            <div>
+                <label for="edit-cat-keywords">Keywords (comma-separated)</label>
+                <input type="text" id="edit-cat-keywords">
+            </div>
+            <footer>
+                <button type="button" class="secondary" onclick="document.getElementById('edit-category-dialog').close();">Cancel</button>
+                <button type="submit">Save</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadCategories() {
+    fetch('/admin/api/categories')
+        .then(function(r){ return r.json(); })
+        .then(function(cats) {
+            var tbody = document.getElementById('categories-table-body');
+            if (!cats.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No categories defined.</td></tr>';
+                return;
+            }
+            var html = '';
+            cats.forEach(function(c) {
+                var kw = (c.keywords || []).join(', ');
+                var statusBadge = c.enabled
+                    ? '<span class="badge badge-success">Enabled</span>'
+                    : '<span class="badge badge-muted">Disabled</span>';
+                html += '<tr>';
+                html += '<td>' + c.name + '</td>';
+                html += '<td class="text-sm">' + (c.description || '-') + '</td>';
+                html += '<td class="text-sm">' + (kw || '-') + '</td>';
+                html += '<td>' + c.article_count + '</td>';
+                html += '<td>' + statusBadge + '</td>';
+                html += '<td style="white-space:nowrap;">';
+                html += '<button class="outline" style="padding:.25rem .5rem;font-size:.78rem;margin-right:.25rem;" onclick=\'editCategory(' + JSON.stringify(c).replace(/'/g, "\\'") + ')\'>Edit</button>';
+                html += '<button class="outline secondary" style="padding:.25rem .5rem;font-size:.78rem;" onclick="deleteCategory(' + c.id + ')">Delete</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        });
+}
+
+function editCategory(cat) {
+    document.getElementById('edit-cat-id').value = cat.id;
+    document.getElementById('edit-cat-name').value = cat.name;
+    document.getElementById('edit-cat-desc').value = cat.description || '';
+    document.getElementById('edit-cat-keywords').value = (cat.keywords || []).join(', ');
+    document.getElementById('edit-category-dialog').showModal();
+}
+
+function deleteCategory(id) {
+    if (!confirm('Delete this category?')) return;
+    fetch('/admin/api/categories/' + id, { method: 'DELETE' })
+        .then(function(){ loadCategories(); });
+}
+
+// Add category
+document.getElementById('add-category-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var kwRaw = document.getElementById('cat-keywords').value;
+    var keywords = kwRaw ? kwRaw.split(',').map(function(s){ return s.trim(); }).filter(Boolean) : null;
+    fetch('/admin/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: document.getElementById('cat-name').value,
+            description: document.getElementById('cat-desc').value || null,
+            keywords: keywords
+        })
+    }).then(function() {
+        document.getElementById('add-category-form').reset();
+        loadCategories();
+        var flash = document.getElementById('flash-area');
+        flash.innerHTML = '<div class="flash-success">Category created.</div>';
+        setTimeout(function(){ flash.innerHTML = ''; }, 3000);
+    });
+});
+
+// Edit category
+document.getElementById('edit-category-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var id = document.getElementById('edit-cat-id').value;
+    var kwRaw = document.getElementById('edit-cat-keywords').value;
+    var keywords = kwRaw ? kwRaw.split(',').map(function(s){ return s.trim(); }).filter(Boolean) : null;
+    fetch('/admin/api/categories/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: document.getElementById('edit-cat-name').value,
+            description: document.getElementById('edit-cat-desc').value || null,
+            keywords: keywords
+        })
+    }).then(function() {
+        document.getElementById('edit-category-dialog').close();
+        loadCategories();
+        var flash = document.getElementById('flash-area');
+        flash.innerHTML = '<div class="flash-success">Category updated.</div>';
+        setTimeout(function(){ flash.innerHTML = ''; }, 3000);
+    });
+});
+
+document.addEventListener('DOMContentLoaded', loadCategories);
+</script>
+{% endblock %}

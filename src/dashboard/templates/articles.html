@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% set active_page = "articles" %}
+
+{% block title %}Articles{% endblock %}
+
+{% block content %}
+<h1>Articles</h1>
+
+<!-- Filters -->
+<div class="toolbar" id="article-filters">
+    <div>
+        <label class="text-sm" for="f-search">Search</label>
+        <input type="text" id="f-search" placeholder="Title or URL..." style="width:200px;">
+    </div>
+    <div>
+        <label class="text-sm" for="f-category">Category</label>
+        <select id="f-category"><option value="">All</option></select>
+    </div>
+    <div>
+        <label class="text-sm" for="f-source">Source</label>
+        <select id="f-source"><option value="">All</option></select>
+    </div>
+    <div>
+        <label class="text-sm" for="f-status">Status</label>
+        <select id="f-status">
+            <option value="">All</option>
+            <option value="ingested">ingested</option>
+            <option value="deduped">deduped</option>
+            <option value="classified">classified</option>
+            <option value="scored">scored</option>
+            <option value="summarized">summarized</option>
+            <option value="routed">routed</option>
+        </select>
+    </div>
+    <div>
+        <label class="text-sm" for="f-score-min">Score Min</label>
+        <input type="number" id="f-score-min" style="width:80px;" min="0">
+    </div>
+    <div>
+        <label class="text-sm" for="f-score-max">Score Max</label>
+        <input type="number" id="f-score-max" style="width:80px;" min="0">
+    </div>
+    <div>
+        <label class="text-sm" for="f-date-from">From</label>
+        <input type="date" id="f-date-from">
+    </div>
+    <div>
+        <label class="text-sm" for="f-date-to">To</label>
+        <input type="date" id="f-date-to">
+    </div>
+    <div>
+        <label class="text-sm">&nbsp;</label>
+        <button onclick="currentPage=1;loadArticles();">Filter</button>
+    </div>
+</div>
+
+<!-- Articles Table -->
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Source</th>
+                <th>Categories</th>
+                <th>Score</th>
+                <th>Status</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="articles-table-body">
+            <tr><td colspan="6" class="text-muted">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+<div class="pagination" id="articles-pagination"></div>
+
+<!-- Detail panel -->
+<div id="article-detail" style="display:none;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var currentPage = 1;
+
+function buildQuery() {
+    var params = new URLSearchParams();
+    params.set('page', currentPage);
+    var search = document.getElementById('f-search').value;
+    if (search) params.set('search', search);
+    var cat = document.getElementById('f-category').value;
+    if (cat) params.set('category', cat);
+    var src = document.getElementById('f-source').value;
+    if (src) params.set('source_id', src);
+    var status = document.getElementById('f-status').value;
+    if (status) params.set('status', status);
+    var smin = document.getElementById('f-score-min').value;
+    if (smin) params.set('score_min', smin);
+    var smax = document.getElementById('f-score-max').value;
+    if (smax) params.set('score_max', smax);
+    var df = document.getElementById('f-date-from').value;
+    if (df) params.set('date_from', df);
+    var dt = document.getElementById('f-date-to').value;
+    if (dt) params.set('date_to', dt);
+    return params.toString();
+}
+
+function loadArticles() {
+    fetch('/admin/api/articles?' + buildQuery())
+        .then(function(r){ return r.json(); })
+        .then(function(data) {
+            var tbody = document.getElementById('articles-table-body');
+            if (!data.items.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No articles found.</td></tr>';
+                document.getElementById('articles-pagination').innerHTML = '';
+                return;
+            }
+            var html = '';
+            data.items.forEach(function(a) {
+                var cats = (a.categories || []).map(function(c) {
+                    return '<span class="badge badge-info">' + c + '</span>';
+                }).join(' ');
+                var statusCls = a.pipeline_status === 'routed' ? 'badge-success' :
+                                a.pipeline_status === 'ingested' ? 'badge-muted' : 'badge-warning';
+                var dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString() : '-';
+                html += '<tr class="clickable-row" onclick="showDetail(' + a.id + ')">';
+                html += '<td>' + a.title.substring(0, 80) + (a.title.length > 80 ? '...' : '') + '</td>';
+                html += '<td class="text-sm">' + a.source_name + '</td>';
+                html += '<td>' + (cats || '-') + '</td>';
+                html += '<td>' + a.importance_score + (a.is_breaking ? ' <span class="badge badge-danger">BREAKING</span>' : '') + '</td>';
+                html += '<td><span class="badge ' + statusCls + '">' + a.pipeline_status + '</span></td>';
+                html += '<td class="text-sm">' + dateStr + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+
+            // Pagination
+            var pag = '';
+            for (var i = 1; i <= data.pages; i++) {
+                if (i === data.page) {
+                    pag += '<span class="current">' + i + '</span>';
+                } else {
+                    pag += '<a href="#" onclick="currentPage=' + i + ';loadArticles();return false;">' + i + '</a>';
+                }
+            }
+            document.getElementById('articles-pagination').innerHTML = pag;
+        });
+}
+
+function showDetail(id) {
+    var panel = document.getElementById('article-detail');
+    fetch('/admin/api/articles/' + id)
+        .then(function(r){ return r.json(); })
+        .then(function(a) {
+            var html = '<div class="detail-panel">';
+            html += '<h3>' + a.title + '</h3>';
+            html += '<p class="text-sm text-muted">Source: ' + a.source_name + ' | Author: ' + (a.author || 'N/A') + ' | Score: ' + a.importance_score + '</p>';
+            html += '<p class="text-sm"><a href="' + a.url + '" target="_blank">Open original article</a></p>';
+
+            if (a.summaries && a.summaries.length) {
+                html += '<h4>Summaries</h4>';
+                a.summaries.forEach(function(s) {
+                    html += '<div style="margin-bottom:.5rem;padding:.5rem;background:#fff;border-radius:4px;">';
+                    if (s.headline) html += '<strong>' + s.headline + '</strong><br>';
+                    html += '<span class="text-sm">' + s.summary_text + '</span>';
+                    html += '<br><span class="text-muted text-sm">Provider: ' + s.llm_provider + '</span>';
+                    html += '</div>';
+                });
+            }
+
+            if (a.markdown_content) {
+                html += '<h4>Content Preview</h4>';
+                html += '<div style="max-height:300px;overflow-y:auto;background:#fff;padding:.75rem;border-radius:4px;font-size:.85rem;white-space:pre-wrap;">' + a.markdown_content.substring(0, 2000) + '</div>';
+            }
+
+            html += '<button class="outline" style="margin-top:.75rem;" onclick="document.getElementById(\'article-detail\').style.display=\'none\';">Close</button>';
+            html += '</div>';
+            panel.innerHTML = html;
+            panel.style.display = 'block';
+            panel.scrollIntoView({ behavior: 'smooth' });
+        });
+}
+
+function loadFilterOptions() {
+    // Load categories
+    fetch('/admin/api/categories')
+        .then(function(r){ return r.json(); })
+        .then(function(cats) {
+            var sel = document.getElementById('f-category');
+            cats.forEach(function(c) {
+                var opt = document.createElement('option');
+                opt.value = c.name;
+                opt.textContent = c.name + ' (' + c.article_count + ')';
+                sel.appendChild(opt);
+            });
+        });
+    // Load sources
+    fetch('/admin/api/sources')
+        .then(function(r){ return r.json(); })
+        .then(function(sources) {
+            var sel = document.getElementById('f-source');
+            sources.forEach(function(s) {
+                var opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name;
+                sel.appendChild(opt);
+            });
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadFilterOptions();
+    loadArticles();
+});
+</script>
+{% endblock %}
