@@ -26,7 +26,11 @@ app.conf.update(
     beat_schedule={
         "scrape-all-sources": {
             "task": "src.scheduler.scrape_tasks.scrape_all_sources",
-            "schedule": crontab(minute="*/30"),  # every 30 minutes
+            # Tick every 15 minutes — the dispatcher then filters each
+            # source by its own ``schedule_cron`` so a source set to
+            # "every 2h" only runs every 8 ticks, etc. 15 min is our
+            # finest configured schedule (Hacker News).
+            "schedule": crontab(minute="*/15"),
         },
         "generate-daily-digest": {
             "task": "src.scheduler.digest_tasks.generate_daily_digest",
@@ -38,5 +42,23 @@ app.conf.update(
     },
 )
 
-# Auto-discover tasks in the scheduler package so the worker registers them.
-app.autodiscover_tasks(["src.scheduler"])
+# Explicitly import task modules so the worker registers them.
+import src.scheduler.scrape_tasks  # noqa: F401, E402
+import src.scheduler.digest_tasks  # noqa: F401, E402
+import src.scheduler.alert_tasks   # noqa: F401, E402
+
+from celery.signals import worker_process_init  # noqa: E402
+
+
+@worker_process_init.connect
+def reset_db_engine(**kwargs):
+    """Reset the SQLAlchemy async engine in each forked worker process.
+
+    Celery uses prefork workers. Forked processes inherit the parent's
+    asyncpg connection pool, which is bound to the parent's event loop.
+    Resetting the globals forces each worker to create a fresh engine and
+    pool tied to its own event loop.
+    """
+    import src.models.base as base_module
+    base_module._engine = None
+    base_module._async_session = None

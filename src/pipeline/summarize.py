@@ -4,12 +4,20 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.article import Article
 from src.models.summary import Summary
 from src.pipeline.base import PipelineStage
+
+# Sanitization regexes for the fallback summary path. We never want raw
+# HTML, anchor tags, or bare URLs ending up in user-visible summary text.
+_TAG_RE = re.compile(r"<[^>]+>")
+_URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+_MD_LINK_RE = re.compile(r"\[([^\]]+)\]\(https?://[^)]+\)")
+_WHITESPACE_RE = re.compile(r"\s+")
 
 logger = logging.getLogger(__name__)
 
@@ -127,27 +135,43 @@ class SummarizeStage(PipelineStage):
 
     @staticmethod
     def _fallback_summary(article: Article) -> tuple[str, str]:
-        """Extract headline from title and first sentences from content."""
-        headline = article.title[:512] if article.title else "No title"
+        """Extract headline from title and first sentences from content.
 
-        content = article.markdown_content or article.raw_content or ""
-        # Strip markdown headings for cleaner sentences
-        lines = [
-            line.strip()
-            for line in content.split("\n")
-            if line.strip() and not line.strip().startswith("#")
-        ]
-        text = " ".join(lines)
+        Output is always plain text — HTML tags, anchor markup, and bare
+        URLs are stripped so the summary box never displays raw HTML or a
+        Google News redirect link.
+        """
+        headline = (article.title or "No title").strip()
+        if len(headline) > 512:
+            headline = headline[:509] + "..."
 
-        # Take up to 3 sentences
-        sentences: list[str] = []
-        for sep in [".", "!", "?"]:
+        # Prefer cleaned markdown; fall back to raw_content only if we
+        # must — and aggressively sanitize whatever we use.
+        source = article.markdown_content or article.raw_content or ""
+
+        # Strip markdown link wrappers first: "[text](url)" -> "text".
+        text = _MD_LINK_RE.sub(r"\1", source)
+        # Strip every HTML tag.
+        text = _TAG_RE.sub(" ", text)
+        # Drop every bare URL.
+        text = _URL_RE.sub("", text)
+        # Drop markdown headings (#, ##, ...).
+        text = re.sub(r"(?m)^#{1,6}\s*", "", text)
+        # Collapse whitespace.
+        text = _WHITESPACE_RE.sub(" ", text).strip()
+
+        if not text:
+            # All we had was URL / markup. Use the title as the summary
+            # rather than serving the user a broken link.
+            return headline, headline
+
+        # Take the first ~3 sentences by splitting on terminal punctuation.
+        for sep in (".", "!", "?"):
             text = text.replace(sep, sep + "|||")
         parts = [s.strip() for s in text.split("|||") if s.strip()]
         sentences = parts[:3]
 
-        summary_text = " ".join(sentences) if sentences else headline
-        # Cap length
+        summary_text = " ".join(sentences) if sentences else text
         if len(summary_text) > 1000:
             summary_text = summary_text[:997] + "..."
 

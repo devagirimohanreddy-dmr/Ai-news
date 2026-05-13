@@ -30,6 +30,24 @@ class Settings(BaseSettings):
     AZURE_BOT_APP_PASSWORD: str | None = None
     TEAMS_CHANNEL_ID: str | None = None
 
+    # Teams channel notifications — Power Automate / Workflows incoming webhook.
+    # Either anonymous URL (older Logic Apps "When a HTTP request is received"
+    # template) or OAuth-protected URL (newer Power Automate "Direct API"
+    # template). If OAuth, set the three AZURE_AD_* values below; otherwise
+    # leave them blank and the webhook will be called without auth.
+    TEAMS_WEBHOOK_URL: str | None = None
+    TEAMS_NOTIFICATIONS_ENABLED: bool = True
+    TEAMS_NOTIFICATION_MIN_SCORE: int = 1  # importance threshold (LLM scores currently 1-2)
+
+    # Shared secret protecting the RSS feed Power Automate polls.
+    # Acts as a password — anyone with the URL+token can read the feed.
+    TEAMS_FEED_TOKEN: str = "change-me-please-set-TEAMS_FEED_TOKEN"
+
+    # OAuth (client-credentials) for Power Automate Direct API workflows.
+    AZURE_AD_TENANT_ID: str | None = None
+    AZURE_AD_CLIENT_ID: str | None = None
+    AZURE_AD_CLIENT_SECRET: str | None = None
+
     # Scheduling
     DIGEST_SCHEDULE_HOUR: int = 8
     DIGEST_SCHEDULE_MINUTE: int = 0

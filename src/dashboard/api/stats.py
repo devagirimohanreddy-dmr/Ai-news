@@ -74,6 +74,17 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
     )
     articles_by_category = {name: count for name, count in cat_q.all()}
 
+    # Recent articles (last 5)
+    recent_q = await session.execute(
+        select(Article.id, Article.title, Article.created_at)
+        .order_by(Article.created_at.desc())
+        .limit(5)
+    )
+    recent_articles = [
+        {"id": row.id, "title": row.title, "created_at": row.created_at.isoformat() if row.created_at else None}
+        for row in recent_q.all()
+    ]
+
     return {
         "total_articles_today": total_articles_today,
         "scrape_success_rate": scrape_success_rate,
@@ -81,4 +92,5 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
         "active_sources": active_sources,
         "breaking_alerts_today": breaking_today,
         "articles_by_category": articles_by_category,
+        "recent_articles": recent_articles,
     }

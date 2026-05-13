@@ -1,68 +1,157 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Admin{% endblock %} - AI News Bot</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <link rel="stylesheet" href="/admin/static/style.css">
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Admin{% endblock %} — AI News</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/static/style.css?v=15">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  {% block head_extra %}{% endblock %}
 </head>
 <body>
-<div class="admin-layout">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">AI News Bot Admin</div>
-        <nav>
-            <a href="/admin/" class="{% if active_page == 'overview' %}active{% endif %}">
-                &#9632; Overview
-            </a>
-            <a href="/admin/sources" class="{% if active_page == 'sources' %}active{% endif %}">
-                &#9881; Sources
-            </a>
-            <a href="/admin/articles" class="{% if active_page == 'articles' %}active{% endif %}">
-                &#9997; Articles
-            </a>
-            <a href="/admin/categories" class="{% if active_page == 'categories' %}active{% endif %}">
-                &#9776; Categories
-            </a>
-            <a href="/admin/logs" class="{% if active_page == 'logs' %}active{% endif %}">
-                &#9998; Logs
-            </a>
-            <a href="/admin/commands" class="{% if active_page == 'commands' %}active{% endif %}">
-                &#9654; Commands
-            </a>
-            <a href="/admin/settings" class="{% if active_page == 'settings' %}active{% endif %}">
-                &#9881; Settings
-            </a>
-        </nav>
-    </aside>
 
-    <!-- Main -->
-    <main class="main-content">
-        <div id="flash-area"></div>
-        {% block content %}{% endblock %}
-    </main>
+<!-- Theme toggle — fixed top-right -->
+<button class="theme-btn" id="theme-toggle" aria-label="Toggle theme">
+  <i data-lucide="moon" id="theme-icon-dark"></i>
+  <i data-lucide="sun" id="theme-icon-light" style="display:none;"></i>
+</button>
+
+<!-- Mobile sidebar toggle -->
+<button class="sidebar-toggle" id="sidebar-toggle" aria-label="Open menu">
+  <i data-lucide="menu"></i>
+</button>
+
+<!-- Sidebar overlay (mobile) -->
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<div class="admin-layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-brand">
+      <div class="sb-icon"><i data-lucide="zap"></i></div>
+      <div>
+        <div class="sb-name">AI News</div>
+        <div class="sb-sub">Admin Dashboard</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="/admin/" class="nav-link {% if active_page == 'overview' %}active{% endif %}">
+        <i data-lucide="layout-dashboard"></i><span>Overview</span>
+      </a>
+      <a href="/admin/sources" class="nav-link {% if active_page == 'sources' %}active{% endif %}">
+        <i data-lucide="rss"></i><span>Sources</span>
+      </a>
+      <a href="/admin/articles" class="nav-link {% if active_page == 'articles' %}active{% endif %}">
+        <i data-lucide="newspaper"></i><span>Articles</span>
+      </a>
+      <a href="/admin/categories" class="nav-link {% if active_page == 'categories' %}active{% endif %}">
+        <i data-lucide="tag"></i><span>Categories</span>
+      </a>
+      <a href="/admin/logs" class="nav-link {% if active_page == 'logs' %}active{% endif %}">
+        <i data-lucide="scroll-text"></i><span>Logs</span>
+      </a>
+      <a href="/admin/commands" class="nav-link {% if active_page == 'commands' %}active{% endif %}">
+        <i data-lucide="terminal"></i><span>Commands</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="/admin/settings" class="nav-link {% if active_page == 'settings' %}active{% endif %}">
+        <i data-lucide="settings"></i><span>Settings</span>
+      </a>
+    </div>
+
+  </aside>
+
+  <!-- ── Main content ─────────────────────────────────── -->
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
 </div>
 
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
 <script>
-// Global HTMX event helpers
-document.body.addEventListener('htmx:afterRequest', function(evt) {
-    if (evt.detail.successful) {
-        var flash = document.getElementById('flash-area');
-        // Only show success for mutating requests
-        if (['POST','PUT','DELETE'].includes(evt.detail.requestConfig.verb.toUpperCase())) {
-            flash.innerHTML = '<div class="flash-success">Operation completed successfully.</div>';
-            setTimeout(function(){ flash.innerHTML = ''; }, 3000);
-        }
+// Apply theme before first paint
+(function() {
+  var t = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+
+document.addEventListener('DOMContentLoaded', function() {
+  lucide.createIcons();
+
+  var root   = document.documentElement;
+  var toggle = document.getElementById('theme-toggle');
+  var iDark  = document.getElementById('theme-icon-dark');
+  var iLight = document.getElementById('theme-icon-light');
+
+  function applyTheme(t) {
+    root.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    if (iDark)  iDark.style.display  = t === 'dark' ? 'none' : '';
+    if (iLight) iLight.style.display = t === 'dark' ? ''     : 'none';
+  }
+  applyTheme(localStorage.getItem('theme') || 'light');
+
+  if (toggle) toggle.addEventListener('click', function() {
+    applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  // Mobile sidebar
+  var btn     = document.getElementById('sidebar-toggle');
+  var sidebar = document.getElementById('sidebar');
+  var overlay = document.getElementById('sidebar-overlay');
+  if (btn) btn.addEventListener('click', function() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('visible');
+  });
+  if (overlay) overlay.addEventListener('click', function() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('visible');
+  });
+
+  // HTMX feedback
+  document.body.addEventListener('htmx:afterRequest', function(e) {
+    if (e.detail.successful) {
+      var v = (e.detail.requestConfig.verb || '').toUpperCase();
+      if (['POST','PUT','DELETE'].includes(v)) showToast('Done.', 'success');
     }
+  });
+  document.body.addEventListener('htmx:responseError', function(e) {
+    showToast('Request failed (' + (e.detail.xhr.status || '?') + ')', 'error');
+  });
 });
-document.body.addEventListener('htmx:responseError', function(evt) {
-    var flash = document.getElementById('flash-area');
-    flash.innerHTML = '<div class="flash-error">Error: ' + (evt.detail.xhr.status || 'unknown') + '</div>';
-    setTimeout(function(){ flash.innerHTML = ''; }, 5000);
-});
+
+function showToast(msg, type, ms) {
+  type = type || 'success'; ms = ms || 4000;
+  var c = document.getElementById('toast-container');
+  if (!c) return;
+  var el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  var icons = {success:'check-circle', error:'x-circle', warning:'alert-triangle', info:'info'};
+  el.innerHTML = '<i data-lucide="'+(icons[type]||'info')+'"></i><span>'+escHtml(msg)+'</span>'
+    +'<button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;padding:0;color:inherit;display:flex;"><i data-lucide="x"></i></button>';
+  c.appendChild(el);
+  if (window.lucide) lucide.createIcons({nodes:[el]});
+  requestAnimationFrame(function(){ el.classList.add('visible'); });
+  setTimeout(function(){ el.classList.remove('visible'); setTimeout(function(){ el.remove(); }, 300); }, ms);
+}
+function showFlash(m, t) { showToast(m, (t==='danger'||t==='error')?'error':(t||'success')); }
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
+
 {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -20,6 +20,8 @@ dependencies = [
     "playwright",
     "python-readability",
     "markdownify",
+    "markdown",
+    "croniter",
     "openai",
     "anthropic",
     "google-generativeai",

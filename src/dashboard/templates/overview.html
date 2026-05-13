@@ -3,66 +3,231 @@
 
 {% block title %}Overview{% endblock %}
 
-{% block content %}
-<h1>Dashboard Overview</h1>
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% endblock %}
 
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>Overview</h1>
+    <p class="page-subtitle">System status and today's highlights</p>
+  </div>
+  <div class="page-actions">
+    <span class="refresh-badge">
+      <span class="status-dot green"></span>
+      Auto-refreshing every 30s
+    </span>
+  </div>
+</div>
+
+<!-- Stats area — HTMX auto-refresh -->
 <div id="stats-area"
      hx-get="/admin/api/stats"
      hx-trigger="load, every 30s"
      hx-swap="innerHTML">
-    <div class="stats-grid">
-        <div class="stat-card"><div class="label">Articles Today</div><div class="value">--</div></div>
-        <div class="stat-card"><div class="label">Active Sources</div><div class="value">--</div></div>
-        <div class="stat-card"><div class="label">Total Sources</div><div class="value">--</div></div>
-        <div class="stat-card"><div class="label">Scrape Success Rate</div><div class="value">--%</div></div>
-        <div class="stat-card"><div class="label">Breaking Alerts Today</div><div class="value">--</div></div>
+  <!-- Skeleton placeholders -->
+  <div class="stats-grid">
+    {% for _ in range(5) %}
+    <div class="stat-card">
+      <div class="stat-card-body">
+        <div class="skeleton skeleton-text short" style="width:100px;margin-bottom:.625rem;"></div>
+        <div class="skeleton skeleton-title" style="width:70px;height:28px;margin-bottom:.375rem;"></div>
+        <div class="skeleton skeleton-text short" style="width:80px;"></div>
+      </div>
+      <div class="skeleton" style="width:44px;height:44px;border-radius:12px;flex-shrink:0;"></div>
     </div>
-    <p class="text-muted text-sm">Loading...</p>
+    {% endfor %}
+  </div>
 </div>
 
-<h2>Articles by Category (Today)</h2>
-<div id="category-chart"></div>
+<!-- Two-column: chart + health -->
+<div class="overview-grid">
+
+  <!-- Category chart -->
+  <div class="chart-card" id="category-chart-card" style="display:none;">
+    <div class="chart-card-title">
+      <i data-lucide="bar-chart-2"></i>
+      Articles by Category (Today)
+    </div>
+    <div id="category-chart-inner"></div>
+  </div>
+
+  <!-- System health -->
+  <div class="chart-card">
+    <div class="chart-card-title">
+      <i data-lucide="activity"></i>
+      System Health
+    </div>
+    <div id="health-area">
+      <div class="health-row">
+        <span class="skeleton skeleton-text" style="width:80px;height:12px;"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Recent articles -->
+<div class="chart-card" id="recent-articles-card" style="display:none;">
+  <div class="chart-card-title">
+    <i data-lucide="clock"></i>
+    Recent Articles
+  </div>
+  <div class="recent-list" id="recent-articles-list"></div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Process the JSON stats response and render HTML
+var _chartInstance = null;
+
+// ── Process HTMX stats response ──────────────────────────────────
 document.body.addEventListener('htmx:beforeSwap', function(evt) {
-    if (evt.detail.target.id !== 'stats-area') return;
-    try {
-        var data = JSON.parse(evt.detail.xhr.responseText);
-        var html = '<div class="stats-grid">';
-        html += '<div class="stat-card"><div class="label">Articles Today</div><div class="value">' + data.total_articles_today + '</div></div>';
-        html += '<div class="stat-card"><div class="label">Active Sources</div><div class="value">' + data.active_sources + '</div></div>';
-        html += '<div class="stat-card"><div class="label">Total Sources</div><div class="value">' + data.total_sources + '</div></div>';
-        html += '<div class="stat-card"><div class="label">Scrape Success Rate</div><div class="value">' + data.scrape_success_rate + '%</div></div>';
-        html += '<div class="stat-card"><div class="label">Breaking Alerts Today</div><div class="value">' + data.breaking_alerts_today + '</div></div>';
-        html += '</div>';
+  if (evt.detail.target.id !== 'stats-area') return;
+  try {
+    var data = JSON.parse(evt.detail.xhr.responseText);
+    evt.detail.shouldSwap = false;
+    renderStats(data);
+  } catch(e) { /* let HTMX handle */ }
+});
 
-        // Category chart (simple bar list)
-        var cats = data.articles_by_category || {};
-        var keys = Object.keys(cats);
-        if (keys.length > 0) {
-            var maxVal = Math.max.apply(null, keys.map(function(k){ return cats[k]; })) || 1;
-            html += '<div class="table-wrap" style="margin-top:1rem;padding:1rem;">';
-            keys.forEach(function(k) {
-                var pct = Math.round(cats[k] / maxVal * 100);
-                html += '<div style="margin-bottom:.5rem;">';
-                html += '<div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.15rem;"><span>' + k + '</span><span>' + cats[k] + '</span></div>';
-                html += '<div style="background:#e2e8f0;border-radius:4px;height:8px;"><div style="background:#3b82f6;height:8px;border-radius:4px;width:' + pct + '%;"></div></div>';
-                html += '</div>';
-            });
-            html += '</div>';
-        } else {
-            html += '<p class="text-muted text-sm">No articles categorized today.</p>';
-        }
+function renderStats(data) {
+  var area = document.getElementById('stats-area');
+  if (!area) return;
 
-        html += '<p class="text-muted text-sm" style="margin-top:.75rem;">Last refreshed: ' + new Date().toLocaleTimeString() + '</p>';
+  var cards = [
+    { label: 'ARTICLES TODAY',        value: data.total_articles_today,     icon: 'newspaper',    iconCls: 'icon-blue',   labelCls: 'lbl-blue' },
+    { label: 'ACTIVE SOURCES',        value: data.active_sources,            icon: 'radio-tower',  iconCls: 'icon-green',  labelCls: 'lbl-green' },
+    { label: 'TOTAL SOURCES',         value: data.total_sources,             icon: 'database',     iconCls: 'icon-purple', labelCls: 'lbl-purple' },
+    { label: 'SCRAPE SUCCESS RATE',   value: data.scrape_success_rate + '%', icon: 'zap',          iconCls: 'icon-orange', labelCls: 'lbl-orange' },
+    { label: 'BREAKING ALERTS TODAY', value: data.breaking_alerts_today,     icon: 'trending-up',  iconCls: 'icon-rose',   labelCls: 'lbl-rose' },
+  ];
 
-        evt.detail.serverResponse = html;
-    } catch(e) {
-        // If it's not JSON, let HTMX handle normally
-    }
+  var html = '<div class="stats-grid">';
+  cards.forEach(function(c) {
+    html += '<div class="stat-card">';
+    html += '<div class="stat-card-body">';
+    html += '<div class="stat-label ' + c.labelCls + '">' + c.label + '</div>';
+    html += '<div class="stat-value">' + (c.value !== undefined ? c.value : '—') + '</div>';
+    html += '</div>';
+    html += '<div class="stat-card-icon ' + c.iconCls + '">';
+    html += '<i data-lucide="' + c.icon + '"></i>';
+    html += '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<p class="text-xs text-muted" style="margin:.5rem 0 0;text-align:right;">Last refreshed: ' + new Date().toLocaleTimeString() + '</p>';
+
+  area.innerHTML = html;
+  if (window.lucide) lucide.createIcons({ nodes: [area] });
+
+  // Render category chart
+  renderCategoryChart(data.articles_by_category || {});
+
+  // Render recent articles
+  renderRecentArticles(data.recent_articles || []);
+}
+
+function renderCategoryChart(cats) {
+  var card = document.getElementById('category-chart-card');
+  var inner = document.getElementById('category-chart-inner');
+  if (!card || !inner) return;
+
+  var keys = Object.keys(cats);
+  if (!keys.length) {
+    card.style.display = 'none';
+    return;
+  }
+
+  card.style.display = '';
+
+  // Sort descending
+  keys.sort(function(a, b) { return cats[b] - cats[a]; });
+  var maxVal = cats[keys[0]] || 1;
+
+  var html = '';
+  keys.forEach(function(k) {
+    var pct = Math.round(cats[k] / maxVal * 100);
+    html += '<div class="cat-bar-row">';
+    html += '<div class="cat-bar-label" title="' + escHtml(k) + '">' + escHtml(k) + '</div>';
+    html += '<div class="cat-bar-track"><div class="cat-bar-fill" style="width:' + pct + '%"></div></div>';
+    html += '<div class="cat-bar-count">' + cats[k] + '</div>';
+    html += '</div>';
+  });
+  inner.innerHTML = html;
+
+  if (window.lucide) lucide.createIcons({ nodes: [card] });
+}
+
+function renderRecentArticles(articles) {
+  var card = document.getElementById('recent-articles-card');
+  var list = document.getElementById('recent-articles-list');
+  if (!card || !list) return;
+
+  if (!articles || !articles.length) {
+    card.style.display = 'none';
+    return;
+  }
+
+  card.style.display = '';
+  var html = '';
+  articles.forEach(function(a) {
+    var dateStr = a.created_at ? new Date(a.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+    html += '<a href="/admin/articles/' + a.id + '" class="recent-item">';
+    html += '<div class="recent-item-dot"></div>';
+    html += '<div class="recent-item-title">' + escHtml(a.title) + '</div>';
+    if (dateStr) html += '<div class="recent-item-meta">' + dateStr + '</div>';
+    html += '</a>';
+  });
+  list.innerHTML = html;
+}
+
+function renderHealth(data) {
+  var area = document.getElementById('health-area');
+  if (!area) return;
+
+  var checks = data.checks || {};
+  var html = '';
+
+  var services = [
+    { key: 'database', label: 'Database',  icon: 'database' },
+    { key: 'redis',    label: 'Redis',     icon: 'server' },
+    { key: 'ollama',   label: 'Ollama AI', icon: 'cpu' },
+  ];
+
+  services.forEach(function(svc) {
+    var status = checks[svc.key];
+    var isOk = status && (status.status === 'ok' || status === 'ok' || status === true);
+    var dotCls = isOk ? 'green' : (status && status.status === 'degraded' ? 'yellow' : 'red');
+    var latency = (status && status.latency_ms) ? status.latency_ms.toFixed(1) + 'ms' : '';
+    var labelText = isOk ? ('OK' + (latency ? ' · ' + latency : '')) : 'Error';
+    var label = isOk ? labelText : (status && status.status ? status.status : 'Unavailable');
+    html += '<div class="health-row">';
+    html += '<span class="status-dot ' + dotCls + '"></span>';
+    html += '<span class="health-svc-name">' + svc.label + '</span>';
+    html += '<span class="health-svc-status">' + escHtml(String(label)) + '</span>';
+    html += '</div>';
+  });
+
+  area.innerHTML = html;
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Load health on page load
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('/health')
+    .then(function(r){ return r.json(); })
+    .then(function(data){ renderHealth(data); })
+    .catch(function() {
+      var area = document.getElementById('health-area');
+      if (area) area.innerHTML = '<p class="text-sm text-muted">Health check unavailable.</p>';
+    });
 });
 </script>
 {% endblock %}

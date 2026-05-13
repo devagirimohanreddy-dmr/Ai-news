@@ -27,13 +27,15 @@ services:
   # ---------------------------------------------------------------------------
   celery-worker:
     build: .
-    command: celery -A src.config.celery_app worker --loglevel=info -B
+    command: celery -A src.config.celery_app worker --loglevel=info -B --pool=solo
     env_file: .env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - ./src:/app/src
 
   # ---------------------------------------------------------------------------
   # PostgreSQL 16
@@ -45,7 +47,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -69,16 +71,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # ---------------------------------------------------------------------------
-  # Firecrawl — web scraping service
-  # ---------------------------------------------------------------------------
-  firecrawl:
-    image: ghcr.io/mendableai/firecrawl:latest
-    ports:
-      - "3002:3002"
-    environment:
-      PORT: 3002
 
   # ---------------------------------------------------------------------------
   # Ollama — local LLM inference

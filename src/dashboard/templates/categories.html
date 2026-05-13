@@ -4,173 +4,256 @@
 {% block title %}Categories{% endblock %}
 
 {% block content %}
-<h1>Categories</h1>
 
-<!-- Add Category Form -->
-<details style="margin-bottom:1rem;">
-    <summary role="button" class="outline">+ Add New Category</summary>
-    <form id="add-category-form" style="margin-top:.75rem;">
-        <div class="form-grid">
-            <div>
-                <label for="cat-name">Name</label>
-                <input type="text" id="cat-name" required placeholder="Category name">
-            </div>
-            <div>
-                <label for="cat-desc">Description</label>
-                <input type="text" id="cat-desc" placeholder="Short description">
-            </div>
-            <div>
-                <label for="cat-keywords">Keywords (comma-separated)</label>
-                <input type="text" id="cat-keywords" placeholder="ai, ml, deep learning">
-            </div>
-        </div>
-        <div class="form-actions">
-            <button type="submit">Add Category</button>
-        </div>
-    </form>
-</details>
-
-<!-- Categories Table -->
-<div class="table-wrap">
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Keywords</th>
-                <th>Articles</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="categories-table-body">
-            <tr><td colspan="6" class="text-muted">Loading...</td></tr>
-        </tbody>
-    </table>
+<div class="page-header">
+  <div>
+    <h1>Categories</h1>
+    <p class="page-subtitle">Manage article classification categories and keywords</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn-primary" onclick="toggleAddForm()">
+      <i data-lucide="plus"></i> Add Category
+    </button>
+  </div>
 </div>
 
-<!-- Inline edit modal -->
+<!-- ── Add Category Form ───────────────────────────────── -->
+<div id="add-category-panel" style="display:none;margin-bottom:1.25rem;">
+  <div class="form-section">
+    <div class="form-section-title">
+      <i data-lucide="plus-circle"></i>
+      Add New Category
+    </div>
+    <form id="add-category-form">
+      <div class="form-grid">
+        <div>
+          <label for="cat-name">Name</label>
+          <input type="text" id="cat-name" required placeholder="Category name">
+        </div>
+        <div>
+          <label for="cat-desc">Description</label>
+          <input type="text" id="cat-desc" placeholder="Short description">
+        </div>
+        <div>
+          <label for="cat-keywords">Keywords <span class="text-xs text-muted">(comma-separated)</span></label>
+          <input type="text" id="cat-keywords" placeholder="ai, ml, deep learning">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">
+          <i data-lucide="save"></i> Add Category
+        </button>
+        <button type="button" class="btn-secondary" onclick="toggleAddForm()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Categories Table ────────────────────────────────── -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Keywords</th>
+        <th>Articles</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="categories-table-body">
+      <tr>
+        <td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">
+          Loading categories…
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Edit Dialog ──────────────────────────────────────── -->
 <dialog id="edit-category-dialog">
-    <article>
-        <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('edit-category-dialog').close();"></button>
-            <h3>Edit Category</h3>
-        </header>
-        <form id="edit-category-form">
-            <input type="hidden" id="edit-cat-id">
-            <div>
-                <label for="edit-cat-name">Name</label>
-                <input type="text" id="edit-cat-name" required>
-            </div>
-            <div>
-                <label for="edit-cat-desc">Description</label>
-                <input type="text" id="edit-cat-desc">
-            </div>
-            <div>
-                <label for="edit-cat-keywords">Keywords (comma-separated)</label>
-                <input type="text" id="edit-cat-keywords">
-            </div>
-            <footer>
-                <button type="button" class="secondary" onclick="document.getElementById('edit-category-dialog').close();">Cancel</button>
-                <button type="submit">Save</button>
-            </footer>
-        </form>
-    </article>
+  <article style="max-width:480px;border-radius:var(--radius-lg);border:1px solid var(--border);">
+    <header style="display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.375rem;border-bottom:1px solid var(--border);">
+      <h3 style="margin:0;font-size:1rem;font-weight:600;">Edit Category</h3>
+      <button aria-label="Close" onclick="document.getElementById('edit-category-dialog').close();"
+              style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:.25rem;display:flex;align-items:center;">
+        <i data-lucide="x" style="width:18px;height:18px;"></i>
+      </button>
+    </header>
+    <div style="padding:1.375rem;">
+      <form id="edit-category-form">
+        <input type="hidden" id="edit-cat-id">
+        <div style="margin-bottom:.875rem;">
+          <label for="edit-cat-name" style="font-size:.8125rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:.25rem;">Name</label>
+          <input type="text" id="edit-cat-name" required
+                 style="width:100%;padding:.5625rem .75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);font-size:.875rem;font-family:inherit;outline:none;">
+        </div>
+        <div style="margin-bottom:.875rem;">
+          <label for="edit-cat-desc" style="font-size:.8125rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:.25rem;">Description</label>
+          <input type="text" id="edit-cat-desc"
+                 style="width:100%;padding:.5625rem .75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);font-size:.875rem;font-family:inherit;outline:none;">
+        </div>
+        <div style="margin-bottom:1.125rem;">
+          <label for="edit-cat-keywords" style="font-size:.8125rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:.25rem;">
+            Keywords <span class="text-xs text-muted">(comma-separated)</span>
+          </label>
+          <input type="text" id="edit-cat-keywords"
+                 style="width:100%;padding:.5625rem .75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);font-size:.875rem;font-family:inherit;outline:none;">
+        </div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+          <button type="button" class="btn-secondary"
+                  onclick="document.getElementById('edit-category-dialog').close();">Cancel</button>
+          <button type="submit" class="btn-primary">
+            <i data-lucide="save"></i> Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </article>
 </dialog>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
+function toggleAddForm() {
+  var panel = document.getElementById('add-category-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (window.lucide) lucide.createIcons();
+}
+
 function loadCategories() {
-    fetch('/admin/api/categories')
-        .then(function(r){ return r.json(); })
-        .then(function(cats) {
-            var tbody = document.getElementById('categories-table-body');
-            if (!cats.length) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No categories defined.</td></tr>';
-                return;
-            }
-            var html = '';
-            cats.forEach(function(c) {
-                var kw = (c.keywords || []).join(', ');
-                var statusBadge = c.enabled
-                    ? '<span class="badge badge-success">Enabled</span>'
-                    : '<span class="badge badge-muted">Disabled</span>';
-                html += '<tr>';
-                html += '<td>' + c.name + '</td>';
-                html += '<td class="text-sm">' + (c.description || '-') + '</td>';
-                html += '<td class="text-sm">' + (kw || '-') + '</td>';
-                html += '<td>' + c.article_count + '</td>';
-                html += '<td>' + statusBadge + '</td>';
-                html += '<td style="white-space:nowrap;">';
-                html += '<button class="outline" style="padding:.25rem .5rem;font-size:.78rem;margin-right:.25rem;" onclick=\'editCategory(' + JSON.stringify(c).replace(/'/g, "\\'") + ')\'>Edit</button>';
-                html += '<button class="outline secondary" style="padding:.25rem .5rem;font-size:.78rem;" onclick="deleteCategory(' + c.id + ')">Delete</button>';
-                html += '</td>';
-                html += '</tr>';
-            });
-            tbody.innerHTML = html;
-        });
+  fetch('/admin/api/categories')
+    .then(function(r) { return r.json(); })
+    .then(function(cats) {
+      var tbody = document.getElementById('categories-table-body');
+      if (!cats.length) {
+        tbody.innerHTML =
+          '<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted);">' +
+          'No categories defined yet. Add one to start classifying articles.' +
+          '</td></tr>';
+        return;
+      }
+      var html = '';
+      cats.forEach(function(c) {
+        var kw = (c.keywords || []).join(', ');
+        var statusBadge = c.enabled
+          ? '<span class="badge badge-success">Enabled</span>'
+          : '<span class="badge badge-muted">Disabled</span>';
+        html += '<tr>';
+        html += '<td><span style="font-weight:600;">' + escHtml(c.name) + '</span></td>';
+        html += '<td class="text-sm text-muted">' + escHtml(c.description || '—') + '</td>';
+        html += '<td class="text-sm">';
+        if (kw) {
+          var kwArr = (c.keywords || []);
+          kwArr.slice(0, 4).forEach(function(k) {
+            html += '<span class="badge-pill badge-cat-default" style="margin:.1rem .15rem;">' + escHtml(k) + '</span>';
+          });
+          if (kwArr.length > 4) html += '<span class="text-xs text-muted">+' + (kwArr.length - 4) + ' more</span>';
+        } else {
+          html += '<span class="text-muted">—</span>';
+        }
+        html += '</td>';
+        html += '<td><span style="font-weight:600;">' + c.article_count + '</span></td>';
+        html += '<td>' + statusBadge + '</td>';
+        html += '<td>';
+        html += '<div style="display:flex;gap:.375rem;">';
+        html += '<button class="btn-secondary btn-sm" onclick=\'editCategory(' + JSON.stringify(c).replace(/'/g, "\\'") + ')\'>' +
+                '<i data-lucide="pencil" style="width:11px;height:11px;"></i> Edit</button>';
+        html += '<button class="btn-danger btn-sm" onclick="deleteCategory(' + c.id + ')">' +
+                '<i data-lucide="trash-2" style="width:11px;height:11px;"></i></button>';
+        html += '</div>';
+        html += '</td>';
+        html += '</tr>';
+      });
+      tbody.innerHTML = html;
+      if (window.lucide) lucide.createIcons({ nodes: [tbody] });
+    });
 }
 
 function editCategory(cat) {
-    document.getElementById('edit-cat-id').value = cat.id;
-    document.getElementById('edit-cat-name').value = cat.name;
-    document.getElementById('edit-cat-desc').value = cat.description || '';
-    document.getElementById('edit-cat-keywords').value = (cat.keywords || []).join(', ');
-    document.getElementById('edit-category-dialog').showModal();
+  document.getElementById('edit-cat-id').value = cat.id;
+  document.getElementById('edit-cat-name').value = cat.name;
+  document.getElementById('edit-cat-desc').value = cat.description || '';
+  document.getElementById('edit-cat-keywords').value = (cat.keywords || []).join(', ');
+  var dialog = document.getElementById('edit-category-dialog');
+  dialog.showModal();
+  if (window.lucide) lucide.createIcons({ nodes: [dialog] });
 }
 
 function deleteCategory(id) {
-    if (!confirm('Delete this category?')) return;
-    fetch('/admin/api/categories/' + id, { method: 'DELETE' })
-        .then(function(){ loadCategories(); });
+  if (!confirm('Delete this category?')) return;
+  fetch('/admin/api/categories/' + id, { method: 'DELETE' })
+    .then(function() {
+      showToast('Category deleted', 'success');
+      loadCategories();
+    })
+    .catch(function() { showToast('Failed to delete category', 'error'); });
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // Add category
-document.getElementById('add-category-form').addEventListener('submit', function(e) {
+document.addEventListener('DOMContentLoaded', function() {
+  loadCategories();
+  if (window.lucide) lucide.createIcons();
+
+  document.getElementById('add-category-form').addEventListener('submit', function(e) {
     e.preventDefault();
     var kwRaw = document.getElementById('cat-keywords').value;
-    var keywords = kwRaw ? kwRaw.split(',').map(function(s){ return s.trim(); }).filter(Boolean) : null;
+    var keywords = kwRaw ? kwRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : null;
     fetch('/admin/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name: document.getElementById('cat-name').value,
-            description: document.getElementById('cat-desc').value || null,
-            keywords: keywords
-        })
-    }).then(function() {
-        document.getElementById('add-category-form').reset();
-        loadCategories();
-        var flash = document.getElementById('flash-area');
-        flash.innerHTML = '<div class="flash-success">Category created.</div>';
-        setTimeout(function(){ flash.innerHTML = ''; }, 3000);
-    });
-});
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: document.getElementById('cat-name').value.trim(),
+        description: document.getElementById('cat-desc').value.trim() || null,
+        keywords: keywords,
+      })
+    })
+    .then(function(r) {
+      if (!r.ok) throw new Error('Failed');
+      return r.json();
+    })
+    .then(function() {
+      showToast('Category created successfully', 'success');
+      document.getElementById('add-category-form').reset();
+      document.getElementById('add-category-panel').style.display = 'none';
+      loadCategories();
+    })
+    .catch(function() { showToast('Failed to create category', 'error'); });
+  });
 
-// Edit category
-document.getElementById('edit-category-form').addEventListener('submit', function(e) {
+  // Edit category
+  document.getElementById('edit-category-form').addEventListener('submit', function(e) {
     e.preventDefault();
     var id = document.getElementById('edit-cat-id').value;
     var kwRaw = document.getElementById('edit-cat-keywords').value;
-    var keywords = kwRaw ? kwRaw.split(',').map(function(s){ return s.trim(); }).filter(Boolean) : null;
+    var keywords = kwRaw ? kwRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : null;
     fetch('/admin/api/categories/' + id, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name: document.getElementById('edit-cat-name').value,
-            description: document.getElementById('edit-cat-desc').value || null,
-            keywords: keywords
-        })
-    }).then(function() {
-        document.getElementById('edit-category-dialog').close();
-        loadCategories();
-        var flash = document.getElementById('flash-area');
-        flash.innerHTML = '<div class="flash-success">Category updated.</div>';
-        setTimeout(function(){ flash.innerHTML = ''; }, 3000);
-    });
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: document.getElementById('edit-cat-name').value.trim(),
+        description: document.getElementById('edit-cat-desc').value.trim() || null,
+        keywords: keywords,
+      })
+    })
+    .then(function(r) {
+      if (!r.ok) throw new Error('Failed');
+      return r.json();
+    })
+    .then(function() {
+      document.getElementById('edit-category-dialog').close();
+      showToast('Category updated successfully', 'success');
+      loadCategories();
+    })
+    .catch(function() { showToast('Failed to update category', 'error'); });
+  });
 });
-
-document.addEventListener('DOMContentLoaded', loadCategories);
 </script>
 {% endblock %}

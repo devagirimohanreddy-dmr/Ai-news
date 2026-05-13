@@ -4,285 +4,371 @@
 {% block title %}Articles{% endblock %}
 
 {% block content %}
-<h1>Articles</h1>
 
-<!-- Filters -->
+<div class="page-header">
+  <div>
+    <h1>Articles</h1>
+    <p class="page-subtitle">Browse, filter, and inspect ingested articles</p>
+  </div>
+  <div class="page-actions">
+    <div class="view-toggle">
+      <button id="view-cards" class="active" onclick="setView('cards')">
+        <i data-lucide="layout-grid" style="width:13px;height:13px;display:inline;"></i> Cards
+      </button>
+      <button id="view-table" onclick="setView('table')">
+        <i data-lucide="table-2" style="width:13px;height:13px;display:inline;"></i> Table
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Filters ──────────────────────────────────────────── -->
 <div class="toolbar" id="article-filters">
-    <div>
-        <label class="text-sm" for="f-search">Search</label>
-        <input type="text" id="f-search" placeholder="Title or URL..." style="width:200px;">
-    </div>
-    <div>
-        <label class="text-sm" for="f-category">Category</label>
-        <select id="f-category"><option value="">All</option></select>
-    </div>
-    <div>
-        <label class="text-sm" for="f-source">Source</label>
-        <select id="f-source"><option value="">All</option></select>
-    </div>
-    <div>
-        <label class="text-sm" for="f-status">Status</label>
-        <select id="f-status">
-            <option value="">All</option>
-            <option value="ingested">ingested</option>
-            <option value="deduped">deduped</option>
-            <option value="classified">classified</option>
-            <option value="scored">scored</option>
-            <option value="summarized">summarized</option>
-            <option value="routed">routed</option>
-        </select>
-    </div>
-    <div>
-        <label class="text-sm" for="f-score-min">Score Min</label>
-        <input type="number" id="f-score-min" style="width:80px;" min="0">
-    </div>
-    <div>
-        <label class="text-sm" for="f-score-max">Score Max</label>
-        <input type="number" id="f-score-max" style="width:80px;" min="0">
-    </div>
-    <div>
-        <label class="text-sm" for="f-date-from">From</label>
-        <input type="date" id="f-date-from">
-    </div>
-    <div>
-        <label class="text-sm" for="f-date-to">To</label>
-        <input type="date" id="f-date-to">
-    </div>
-    <div>
-        <label class="text-sm">&nbsp;</label>
-        <button onclick="currentPage=1;loadArticles();">Filter</button>
-    </div>
-    <div>
-        <label class="text-sm">&nbsp;</label>
-        <div class="view-toggle">
-            <button id="view-cards" class="active" onclick="setView('cards')">Cards</button>
-            <button id="view-table" onclick="setView('table')">Table</button>
-        </div>
-    </div>
+  <div>
+    <label for="f-search">Search</label>
+    <input type="text" id="f-search" placeholder="Title or URL…" style="width:200px;"
+           oninput="debouncedSearch()">
+  </div>
+  <div>
+    <label for="f-category">Category</label>
+    <select id="f-category" onchange="currentPage=1;loadArticles();">
+      <option value="">All</option>
+    </select>
+  </div>
+  <div>
+    <label for="f-source">Source</label>
+    <select id="f-source" onchange="currentPage=1;loadArticles();">
+      <option value="">All</option>
+    </select>
+  </div>
+  <div>
+    <label for="f-status">Status</label>
+    <select id="f-status" onchange="currentPage=1;loadArticles();">
+      <option value="">All</option>
+      <option value="ingested">ingested</option>
+      <option value="deduped">deduped</option>
+      <option value="classified">classified</option>
+      <option value="scored">scored</option>
+      <option value="summarized">summarized</option>
+      <option value="routed">routed</option>
+    </select>
+  </div>
+  <div>
+    <label for="f-score-min">Score Min</label>
+    <input type="number" id="f-score-min" style="width:80px;" min="0" onchange="currentPage=1;loadArticles();">
+  </div>
+  <div>
+    <label for="f-score-max">Score Max</label>
+    <input type="number" id="f-score-max" style="width:80px;" min="0" onchange="currentPage=1;loadArticles();">
+  </div>
+  <div>
+    <label for="f-date-from">From</label>
+    <input type="date" id="f-date-from" onchange="currentPage=1;loadArticles();">
+  </div>
+  <div>
+    <label for="f-date-to">To</label>
+    <input type="date" id="f-date-to" onchange="currentPage=1;loadArticles();">
+  </div>
+  <div style="align-self:flex-end;">
+    <button class="btn-primary btn-sm" onclick="currentPage=1;loadArticles();">
+      <i data-lucide="search" style="width:13px;height:13px;"></i> Filter
+    </button>
+  </div>
 </div>
 
-<!-- Cards View -->
+<!-- ── Cards View ───────────────────────────────────────── -->
 <div id="articles-cards" class="cards-grid">
-    <div class="text-muted">Loading...</div>
+  <!-- Skeleton cards shown on initial load -->
+  {% for _ in range(6) %}
+  <div class="skeleton-card">
+    <div class="skeleton skeleton-img"></div>
+    <div class="skeleton skeleton-title"></div>
+    <div class="skeleton skeleton-text"></div>
+    <div class="skeleton skeleton-text short"></div>
+  </div>
+  {% endfor %}
 </div>
 
-<!-- Table View (hidden by default) -->
+<!-- ── Table View (hidden by default) ──────────────────── -->
 <div id="articles-table-wrap" class="table-wrap" style="display:none;">
-    <table>
-        <thead>
-            <tr>
-                <th>Title</th>
-                <th>Source</th>
-                <th>Categories</th>
-                <th>Score</th>
-                <th>Status</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody id="articles-table-body">
-            <tr><td colspan="6" class="text-muted">Loading...</td></tr>
-        </tbody>
-    </table>
+  <table>
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Source</th>
+        <th>Categories</th>
+        <th>Score</th>
+        <th>Status</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody id="articles-table-body">
+      <tr><td colspan="6" class="text-muted text-sm" style="text-align:center;padding:2rem;">Loading…</td></tr>
+    </tbody>
+  </table>
 </div>
 
-<!-- Pagination -->
+<!-- ── Pagination ───────────────────────────────────────── -->
 <div class="pagination" id="articles-pagination"></div>
 
-<!-- Detail panel (legacy, kept for table view) -->
+<!-- Detail panel (kept for compatibility) -->
 <div id="article-detail" style="display:none;"></div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 var currentPage = 1;
 var currentView = 'cards';
+var _searchTimer = null;
+
+// ── Live search with 400ms debounce ──────────────────────
+function debouncedSearch() {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(function() {
+    currentPage = 1;
+    loadArticles();
+  }, 400);
+}
 
 function setView(view) {
-    currentView = view;
-    document.getElementById('view-cards').classList.toggle('active', view === 'cards');
-    document.getElementById('view-table').classList.toggle('active', view === 'table');
-    document.getElementById('articles-cards').style.display = view === 'cards' ? 'grid' : 'none';
-    document.getElementById('articles-table-wrap').style.display = view === 'table' ? 'block' : 'none';
+  currentView = view;
+  document.getElementById('view-cards').classList.toggle('active', view === 'cards');
+  document.getElementById('view-table').classList.toggle('active', view === 'table');
+  document.getElementById('articles-cards').style.display = view === 'cards' ? 'grid' : 'none';
+  document.getElementById('articles-table-wrap').style.display = view === 'table' ? 'block' : 'none';
+  if (window.lucide) lucide.createIcons();
 }
 
 function getCategoryBadgeClass(cat) {
-    var lc = cat.toLowerCase();
-    if (lc.indexOf('ai') >= 0 || lc.indexOf('artificial') >= 0) return 'badge-cat-ai';
-    if (lc.indexOf('ml') >= 0 || lc.indexOf('machine') >= 0 || lc.indexOf('model') >= 0) return 'badge-cat-ml';
-    if (lc.indexOf('secur') >= 0 || lc.indexOf('cyber') >= 0) return 'badge-cat-security';
-    if (lc.indexOf('cloud') >= 0 || lc.indexOf('infra') >= 0) return 'badge-cat-cloud';
-    if (lc.indexOf('devops') >= 0 || lc.indexOf('deploy') >= 0) return 'badge-cat-devops';
-    if (lc.indexOf('data') >= 0 || lc.indexOf('analy') >= 0) return 'badge-cat-data';
-    return 'badge-cat-default';
+  var lc = (cat || '').toLowerCase();
+  if (lc.indexOf('ai') >= 0 || lc.indexOf('artificial') >= 0) return 'badge-cat-ai';
+  if (lc.indexOf('ml') >= 0 || lc.indexOf('machine') >= 0 || lc.indexOf('model') >= 0) return 'badge-cat-ml';
+  if (lc.indexOf('secur') >= 0 || lc.indexOf('cyber') >= 0) return 'badge-cat-security';
+  if (lc.indexOf('cloud') >= 0 || lc.indexOf('infra') >= 0) return 'badge-cat-cloud';
+  if (lc.indexOf('devops') >= 0 || lc.indexOf('deploy') >= 0) return 'badge-cat-devops';
+  if (lc.indexOf('data') >= 0 || lc.indexOf('analy') >= 0) return 'badge-cat-data';
+  return 'badge-cat-default';
 }
 
 function getAccentClass(a) {
-    if (a.is_breaking) return 'accent-red';
-    if (a.importance_score >= 8) return 'accent-orange';
-    return 'accent-blue';
+  if (a.is_breaking) return 'accent-red';
+  if (a.importance_score >= 8) return 'accent-orange';
+  return 'accent-blue';
 }
 
 function getScoreClass(score) {
-    if (score >= 8) return 'score-high';
-    if (score >= 5) return 'score-mid';
-    return 'score-low';
+  if (score >= 8) return 'score-high';
+  if (score >= 5) return 'score-mid';
+  return 'score-low';
 }
 
 function buildQuery() {
-    var params = new URLSearchParams();
-    params.set('page', currentPage);
-    var search = document.getElementById('f-search').value;
-    if (search) params.set('search', search);
-    var cat = document.getElementById('f-category').value;
-    if (cat) params.set('category', cat);
-    var src = document.getElementById('f-source').value;
-    if (src) params.set('source_id', src);
-    var status = document.getElementById('f-status').value;
-    if (status) params.set('status', status);
-    var smin = document.getElementById('f-score-min').value;
-    if (smin) params.set('score_min', smin);
-    var smax = document.getElementById('f-score-max').value;
-    if (smax) params.set('score_max', smax);
-    var df = document.getElementById('f-date-from').value;
-    if (df) params.set('date_from', df);
-    var dt = document.getElementById('f-date-to').value;
-    if (dt) params.set('date_to', dt);
-    return params.toString();
+  var params = new URLSearchParams();
+  params.set('page', currentPage);
+  var search = document.getElementById('f-search').value;
+  if (search) params.set('search', search);
+  var cat = document.getElementById('f-category').value;
+  if (cat) params.set('category', cat);
+  var src = document.getElementById('f-source').value;
+  if (src) params.set('source_id', src);
+  var status = document.getElementById('f-status').value;
+  if (status) params.set('status', status);
+  var smin = document.getElementById('f-score-min').value;
+  if (smin) params.set('score_min', smin);
+  var smax = document.getElementById('f-score-max').value;
+  if (smax) params.set('score_max', smax);
+  var df = document.getElementById('f-date-from').value;
+  if (df) params.set('date_from', df);
+  var dt = document.getElementById('f-date-to').value;
+  if (dt) params.set('date_to', dt);
+  return params.toString();
 }
 
 function escapeHtml(text) {
-    if (!text) return '';
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(text));
-    return div.innerHTML;
+  if (!text) return '';
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
+}
+
+function showSkeletons() {
+  var skeletonHtml = '';
+  for (var i = 0; i < 6; i++) {
+    skeletonHtml += '<div class="article-card">';
+    skeletonHtml += '<div class="article-card-thumb no-img skeleton"></div>';
+    skeletonHtml += '<div class="article-card-body">';
+    skeletonHtml += '<div class="skeleton skeleton-title" style="width:90%;margin-bottom:6px;"></div>';
+    skeletonHtml += '<div class="skeleton skeleton-text" style="width:70%;margin-bottom:4px;"></div>';
+    skeletonHtml += '<div class="skeleton skeleton-text short"></div>';
+    skeletonHtml += '</div></div>';
+  }
+  document.getElementById('articles-cards').innerHTML = skeletonHtml;
 }
 
 function loadArticles() {
-    fetch('/admin/api/articles?' + buildQuery())
-        .then(function(r){ return r.json(); })
-        .then(function(data) {
-            // --- Render Cards View ---
-            var cardsContainer = document.getElementById('articles-cards');
-            var tbody = document.getElementById('articles-table-body');
+  if (currentView === 'cards') showSkeletons();
 
-            if (!data.items.length) {
-                cardsContainer.innerHTML = '<div class="text-muted">No articles found.</div>';
-                tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No articles found.</td></tr>';
-                document.getElementById('articles-pagination').innerHTML = '';
-                return;
-            }
+  fetch('/admin/api/articles?' + buildQuery())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var cardsContainer = document.getElementById('articles-cards');
+      var tbody = document.getElementById('articles-table-body');
 
-            // Cards
-            var cardsHtml = '';
-            data.items.forEach(function(a) {
-                var accentClass = getAccentClass(a);
-                var dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString() : '';
-                var scoreClass = getScoreClass(a.importance_score);
+      // ── DEBUG: log image_url for every article ──────────────────
+      if (data.items && data.items.length) {
+        var withImg = data.items.filter(function(a){return a.image_url;}).length;
+        console.log('[articles] received ' + data.items.length + ' items, ' +
+                    withImg + ' have image_url (' +
+                    Math.round(withImg/data.items.length*100) + '%)');
+        console.table(data.items.map(function(a){
+          return { id: a.id, title: (a.title||'').slice(0,40), image_url: a.image_url || '(NULL)' };
+        }));
+      }
 
-                cardsHtml += '<a href="/admin/articles/' + a.id + '" class="teams-card">';
-                cardsHtml += '<div class="card-accent ' + accentClass + '"></div>';
-                cardsHtml += '<div class="card-body">';
+      if (!data.items || !data.items.length) {
+        cardsContainer.innerHTML =
+          '<div class="empty-state" style="grid-column:1/-1;">' +
+          '<i data-lucide="search-x"></i>' +
+          '<h3>No articles found</h3>' +
+          '<p>Try adjusting your filters or search query.</p>' +
+          '</div>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">No articles found.</td></tr>';
+        document.getElementById('articles-pagination').innerHTML = '';
+        if (window.lucide) lucide.createIcons({ nodes: [cardsContainer] });
+        return;
+      }
 
-                // Image
-                if (a.image_url) {
-                    cardsHtml += '<div class="card-image"><img src="' + escapeHtml(a.image_url) + '" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'"></div>';
-                }
+      // ── Cards ─────────────────────────────────────────────
+      var cardsHtml = '';
+      data.items.forEach(function(a) {
+        var accentClass = getAccentClass(a);
+        var dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString() : '';
+        var scoreClass = getScoreClass(a.importance_score || 0);
 
-                // Title
-                cardsHtml += '<div class="card-title">' + escapeHtml(a.title) + '</div>';
+        // Only render the thumb area if a real image exists. No fallbacks,
+        // no placeholder graphics — empty image section by design.
+        if (a.image_url) {
+          cardsHtml += '<a href="/admin/articles/' + a.id + '" class="article-card has-thumb">';
+          cardsHtml += '<div class="article-card-thumb">';
+          cardsHtml += '<img src="' + escapeHtml(a.image_url) + '" alt="" loading="lazy"' +
+                       ' onerror="this.style.display=\'none\';' +
+                                 'this.parentElement.classList.add(\'img-failed\');">';
+          cardsHtml += '</div>';
+        } else {
+          cardsHtml += '<a href="/admin/articles/' + a.id + '" class="article-card no-thumb">';
+        }
+        cardsHtml += '<div class="article-card-accent ' + accentClass + '"></div>';
+        cardsHtml += '<div class="article-card-body">';
+        cardsHtml += '<div class="article-card-title">' + escapeHtml(a.title) + '</div>';
 
-                // Category badges
-                var cats = a.categories || [];
-                if (cats.length) {
-                    cardsHtml += '<div class="card-badges">';
-                    cats.forEach(function(c) {
-                        cardsHtml += '<span class="badge-pill ' + getCategoryBadgeClass(c) + '">' + escapeHtml(c) + '</span>';
-                    });
-                    cardsHtml += '</div>';
-                }
+        var cats = a.categories || [];
+        if (cats.length) {
+          cardsHtml += '<div class="card-badges">';
+          cats.slice(0, 3).forEach(function(c) {
+            cardsHtml += '<span class="badge-pill ' + getCategoryBadgeClass(c) + '">' + escapeHtml(c) + '</span>';
+          });
+          if (cats.length > 3) cardsHtml += '<span class="badge-pill badge-cat-default">+' + (cats.length - 3) + '</span>';
+          cardsHtml += '</div>';
+        }
 
-                // Importance bar
-                cardsHtml += '<div class="importance-bar ' + scoreClass + '">';
-                cardsHtml += '<div class="bar-track"><div class="bar-fill" style="width:' + (a.importance_score / 10 * 100) + '%"></div></div>';
-                cardsHtml += '<span class="bar-label">' + a.importance_score + '/10</span>';
-                if (a.is_breaking) cardsHtml += ' <span class="badge badge-danger" style="font-size:.65rem;">BREAKING</span>';
-                cardsHtml += '</div>';
+        cardsHtml += '<div class="importance-bar ' + scoreClass + '">';
+        cardsHtml += '<div class="bar-track"><div class="bar-fill" style="width:' + ((a.importance_score || 0) / 10 * 100) + '%"></div></div>';
+        cardsHtml += '<span class="bar-label">' + (a.importance_score || 0) + '/10</span>';
+        if (a.is_breaking) cardsHtml += ' <span class="badge badge-danger" style="font-size:.625rem;padding:.1em .4em;">BREAKING</span>';
+        cardsHtml += '</div>';
 
-                // Meta
-                cardsHtml += '<p class="card-meta">' + escapeHtml(a.source_name);
-                if (dateStr) cardsHtml += ' &middot; ' + dateStr;
-                var statusCls = a.pipeline_status === 'routed' ? 'badge-success' :
-                                a.pipeline_status === 'ingested' ? 'badge-muted' : 'badge-warning';
-                cardsHtml += ' &middot; <span class="badge ' + statusCls + '" style="font-size:.65rem;">' + a.pipeline_status + '</span>';
-                cardsHtml += '</p>';
+        var statusCls = a.pipeline_status === 'routed' ? 'badge-success' :
+                        a.pipeline_status === 'ingested' ? 'badge-muted' : 'badge-warning';
+        cardsHtml += '<p class="card-meta">';
+        cardsHtml += escapeHtml(a.source_name || '');
+        if (dateStr) cardsHtml += ' <span class="sep">&bull;</span> ' + dateStr;
+        cardsHtml += ' <span class="sep">&bull;</span> <span class="badge ' + statusCls + '" style="font-size:.625rem;">' + escapeHtml(a.pipeline_status) + '</span>';
+        cardsHtml += '</p>';
 
-                cardsHtml += '</div></a>';
-            });
-            cardsContainer.innerHTML = cardsHtml;
+        cardsHtml += '</div></a>';
+      });
+      cardsContainer.innerHTML = cardsHtml;
 
-            // --- Render Table View ---
-            var tableHtml = '';
-            data.items.forEach(function(a) {
-                var cats = (a.categories || []).map(function(c) {
-                    return '<span class="badge badge-info">' + escapeHtml(c) + '</span>';
-                }).join(' ');
-                var statusCls = a.pipeline_status === 'routed' ? 'badge-success' :
-                                a.pipeline_status === 'ingested' ? 'badge-muted' : 'badge-warning';
-                var dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString() : '-';
-                tableHtml += '<tr class="clickable-row" onclick="window.location.href=\'/admin/articles/' + a.id + '\'">';
-                tableHtml += '<td>' + escapeHtml(a.title.substring(0, 80)) + (a.title.length > 80 ? '...' : '') + '</td>';
-                tableHtml += '<td class="text-sm">' + escapeHtml(a.source_name) + '</td>';
-                tableHtml += '<td>' + (cats || '-') + '</td>';
-                tableHtml += '<td>' + a.importance_score + (a.is_breaking ? ' <span class="badge badge-danger">BREAKING</span>' : '') + '</td>';
-                tableHtml += '<td><span class="badge ' + statusCls + '">' + a.pipeline_status + '</span></td>';
-                tableHtml += '<td class="text-sm">' + dateStr + '</td>';
-                tableHtml += '</tr>';
-            });
-            tbody.innerHTML = tableHtml;
+      // ── Table ──────────────────────────────────────────────
+      var tableHtml = '';
+      data.items.forEach(function(a) {
+        var cats = (a.categories || []).map(function(c) {
+          return '<span class="badge-pill ' + getCategoryBadgeClass(c) + '">' + escapeHtml(c) + '</span>';
+        }).join(' ');
+        var statusCls = a.pipeline_status === 'routed' ? 'badge-success' :
+                        a.pipeline_status === 'ingested' ? 'badge-muted' : 'badge-warning';
+        var dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString() : '—';
+        tableHtml += '<tr class="clickable-row" onclick="window.location.href=\'/admin/articles/' + a.id + '\'">';
+        tableHtml += '<td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(a.title.substring(0, 80)) + (a.title.length > 80 ? '…' : '') + '</td>';
+        tableHtml += '<td class="text-sm">' + escapeHtml(a.source_name || '') + '</td>';
+        tableHtml += '<td>' + (cats || '<span class="text-muted">—</span>') + '</td>';
+        tableHtml += '<td>' + (a.importance_score || 0) + (a.is_breaking ? ' <span class="badge badge-danger" style="font-size:.625rem;">BREAKING</span>' : '') + '</td>';
+        tableHtml += '<td><span class="badge ' + statusCls + '">' + escapeHtml(a.pipeline_status) + '</span></td>';
+        tableHtml += '<td class="text-sm text-muted">' + dateStr + '</td>';
+        tableHtml += '</tr>';
+      });
+      tbody.innerHTML = tableHtml;
 
-            // Pagination
-            var pag = '';
-            for (var i = 1; i <= data.pages; i++) {
-                if (i === data.page) {
-                    pag += '<span class="current">' + i + '</span>';
-                } else {
-                    pag += '<a href="#" onclick="currentPage=' + i + ';loadArticles();return false;">' + i + '</a>';
-                }
-            }
-            document.getElementById('articles-pagination').innerHTML = pag;
-        });
+      // ── Pagination ─────────────────────────────────────────
+      var totalPages = data.pages || 1;
+      var pag = '';
+      if (currentPage > 1) {
+        pag += '<a href="#" onclick="currentPage=' + (currentPage - 1) + ';loadArticles();return false;">&lsaquo; Prev</a>';
+      }
+      var startPage = Math.max(1, currentPage - 3);
+      var endPage = Math.min(totalPages, currentPage + 3);
+      if (startPage > 1) pag += '<span style="padding:.375rem .5rem;color:var(--text-muted);">…</span>';
+      for (var i = startPage; i <= endPage; i++) {
+        if (i === currentPage) {
+          pag += '<span class="current">' + i + '</span>';
+        } else {
+          pag += '<a href="#" onclick="currentPage=' + i + ';loadArticles();return false;">' + i + '</a>';
+        }
+      }
+      if (endPage < totalPages) pag += '<span style="padding:.375rem .5rem;color:var(--text-muted);">…</span>';
+      if (currentPage < totalPages) {
+        pag += '<a href="#" onclick="currentPage=' + (currentPage + 1) + ';loadArticles();return false;">Next &rsaquo;</a>';
+      }
+      document.getElementById('articles-pagination').innerHTML = pag;
+    })
+    .catch(function(err) {
+      var cardsContainer = document.getElementById('articles-cards');
+      cardsContainer.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i data-lucide="wifi-off"></i><h3>Failed to load articles</h3><p>' + escapeHtml(err.message) + '</p></div>';
+      if (window.lucide) lucide.createIcons({ nodes: [cardsContainer] });
+    });
 }
 
 function loadFilterOptions() {
-    // Load categories
-    fetch('/admin/api/categories')
-        .then(function(r){ return r.json(); })
-        .then(function(cats) {
-            var sel = document.getElementById('f-category');
-            cats.forEach(function(c) {
-                var opt = document.createElement('option');
-                opt.value = c.name;
-                opt.textContent = c.name + ' (' + c.article_count + ')';
-                sel.appendChild(opt);
-            });
-        });
-    // Load sources
-    fetch('/admin/api/sources')
-        .then(function(r){ return r.json(); })
-        .then(function(sources) {
-            var sel = document.getElementById('f-source');
-            sources.forEach(function(s) {
-                var opt = document.createElement('option');
-                opt.value = s.id;
-                opt.textContent = s.name;
-                sel.appendChild(opt);
-            });
-        });
+  fetch('/admin/api/categories')
+    .then(function(r) { return r.json(); })
+    .then(function(cats) {
+      var sel = document.getElementById('f-category');
+      cats.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.name;
+        opt.textContent = c.name + ' (' + c.article_count + ')';
+        sel.appendChild(opt);
+      });
+    });
+
+  fetch('/admin/api/sources')
+    .then(function(r) { return r.json(); })
+    .then(function(sources) {
+      var sel = document.getElementById('f-source');
+      sources.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        sel.appendChild(opt);
+      });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    loadFilterOptions();
-    loadArticles();
+  loadFilterOptions();
+  loadArticles();
+  if (window.lucide) lucide.createIcons();
 });
 </script>
 {% endblock %}

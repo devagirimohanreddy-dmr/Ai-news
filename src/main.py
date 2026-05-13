@@ -45,6 +45,8 @@ from src.dashboard.api import (  # noqa: E402
     logs_router,
     settings_router,
     commands_router,
+    diagnostics_router,
+    teams_feed_router,
 )
 
 app.include_router(dashboard_router)
@@ -55,6 +57,8 @@ app.include_router(categories_router)
 app.include_router(logs_router)
 app.include_router(settings_router)
 app.include_router(commands_router)
+app.include_router(diagnostics_router)
+app.include_router(teams_feed_router)
 
 # Serve dashboard static assets (CSS, JS, images)
 _static_dir = pathlib.Path(__file__).parent / "dashboard" / "static"

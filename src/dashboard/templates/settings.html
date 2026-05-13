@@ -4,99 +4,148 @@
 {% block title %}Settings{% endblock %}
 
 {% block content %}
-<h1>Settings</h1>
 
-<div class="table-wrap" style="padding:1.25rem;">
-    <form id="settings-form">
-        <div class="form-grid">
-            <div>
-                <label for="s-digest-hour">Daily Digest Hour (UTC, 0-23)</label>
-                <input type="number" id="s-digest-hour" min="0" max="23" value="8">
-            </div>
-            <div>
-                <label for="s-digest-minute">Daily Digest Minute (0-59)</label>
-                <input type="number" id="s-digest-minute" min="0" max="59" value="0">
-            </div>
-            <div>
-                <label for="s-breaking-threshold">Breaking News Threshold (score)</label>
-                <input type="number" id="s-breaking-threshold" min="1" max="10" value="8">
-            </div>
-            <div>
-                <label for="s-scrape-interval">Scrape Interval (minutes)</label>
-                <input type="number" id="s-scrape-interval" min="5" max="1440" value="30">
-            </div>
-            <div>
-                <label for="s-log-level">Log Level</label>
-                <select id="s-log-level">
-                    <option value="DEBUG">DEBUG</option>
-                    <option value="INFO">INFO</option>
-                    <option value="WARNING">WARNING</option>
-                    <option value="ERROR">ERROR</option>
-                </select>
-            </div>
-        </div>
-        <div class="form-actions" style="margin-top:1rem;">
-            <button type="submit">Save Settings</button>
-            <span id="settings-feedback" class="text-sm" style="align-self:center;"></span>
-        </div>
-    </form>
+<div class="page-header">
+  <div>
+    <h1>Settings</h1>
+    <p class="page-subtitle">Configure scheduling, content rules, and system behavior</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn-primary" id="save-btn" onclick="saveSettings()">
+      <i data-lucide="save"></i> Save Settings
+    </button>
+  </div>
 </div>
 
-<div class="mt-1">
-    <p class="text-muted text-sm">
-        Note: Some settings (digest schedule, scrape interval) take effect the next time the
-        Celery beat scheduler reloads. Log level changes are applied at the application level.
+<form id="settings-form" onsubmit="event.preventDefault();saveSettings();">
+
+  <!-- ── Scheduling ─────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i data-lucide="clock"></i>
+      Scheduling
+    </div>
+    <div class="form-grid">
+      <div>
+        <label for="s-digest-hour">Daily Digest Hour <span class="text-xs text-muted">(UTC, 0–23)</span></label>
+        <input type="number" id="s-digest-hour" min="0" max="23" value="8" placeholder="8">
+      </div>
+      <div>
+        <label for="s-digest-minute">Daily Digest Minute <span class="text-xs text-muted">(0–59)</span></label>
+        <input type="number" id="s-digest-minute" min="0" max="59" value="0" placeholder="0">
+      </div>
+      <div>
+        <label for="s-scrape-interval">Scrape Interval <span class="text-xs text-muted">(minutes)</span></label>
+        <input type="number" id="s-scrape-interval" min="5" max="1440" value="30" placeholder="30">
+      </div>
+    </div>
+    <p class="text-xs text-muted" style="margin-top:.75rem;margin-bottom:0;">
+      <i data-lucide="info" style="width:12px;height:12px;display:inline;vertical-align:middle;"></i>
+      Digest schedule and scrape interval take effect the next time the Celery beat scheduler reloads.
     </p>
-</div>
+  </div>
+
+  <!-- ── Content Rules ──────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i data-lucide="sliders-horizontal"></i>
+      Content Rules
+    </div>
+    <div class="form-grid">
+      <div>
+        <label for="s-breaking-threshold">Breaking News Threshold <span class="text-xs text-muted">(importance score 1–10)</span></label>
+        <input type="number" id="s-breaking-threshold" min="1" max="10" value="8" placeholder="8">
+      </div>
+    </div>
+    <p class="text-xs text-muted" style="margin-top:.75rem;margin-bottom:0;">
+      <i data-lucide="info" style="width:12px;height:12px;display:inline;vertical-align:middle;"></i>
+      Articles with an importance score at or above this threshold will trigger breaking news alerts.
+    </p>
+  </div>
+
+  <!-- ── System ─────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i data-lucide="server"></i>
+      System
+    </div>
+    <div class="form-grid">
+      <div>
+        <label for="s-log-level">Log Level</label>
+        <select id="s-log-level">
+          <option value="DEBUG">DEBUG — verbose developer output</option>
+          <option value="INFO" selected>INFO — standard operational logs</option>
+          <option value="WARNING">WARNING — only warnings and errors</option>
+          <option value="ERROR">ERROR — only errors</option>
+        </select>
+      </div>
+    </div>
+    <p class="text-xs text-muted" style="margin-top:.75rem;margin-bottom:0;">
+      <i data-lucide="info" style="width:12px;height:12px;display:inline;vertical-align:middle;"></i>
+      Log level changes are applied at the application level immediately.
+    </p>
+  </div>
+
+</form>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 function loadSettings() {
-    fetch('/admin/api/settings')
-        .then(function(r){ return r.json(); })
-        .then(function(data) {
-            document.getElementById('s-digest-hour').value = data.digest_schedule_hour;
-            document.getElementById('s-digest-minute').value = data.digest_schedule_minute;
-            document.getElementById('s-breaking-threshold').value = data.breaking_news_threshold;
-            document.getElementById('s-scrape-interval').value = data.scrape_interval_minutes;
-            document.getElementById('s-log-level').value = data.log_level;
-        });
+  fetch('/admin/api/settings')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('s-digest-hour').value = data.digest_schedule_hour;
+      document.getElementById('s-digest-minute').value = data.digest_schedule_minute;
+      document.getElementById('s-breaking-threshold').value = data.breaking_news_threshold;
+      document.getElementById('s-scrape-interval').value = data.scrape_interval_minutes;
+      document.getElementById('s-log-level').value = data.log_level;
+    })
+    .catch(function() {
+      showToast('Failed to load settings', 'error');
+    });
 }
 
-document.getElementById('settings-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    var payload = {
-        digest_schedule_hour: parseInt(document.getElementById('s-digest-hour').value, 10),
-        digest_schedule_minute: parseInt(document.getElementById('s-digest-minute').value, 10),
-        breaking_news_threshold: parseInt(document.getElementById('s-breaking-threshold').value, 10),
-        scrape_interval_minutes: parseInt(document.getElementById('s-scrape-interval').value, 10),
-        log_level: document.getElementById('s-log-level').value
-    };
-    var feedback = document.getElementById('settings-feedback');
-    feedback.textContent = 'Saving...';
-    feedback.style.color = '#3b82f6';
+function saveSettings() {
+  var btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" style="animation:spin .6s linear infinite;"></i> Saving…';
+  if (window.lucide) lucide.createIcons({ nodes: [btn] });
 
-    fetch('/admin/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })
-    .then(function(r) {
-        if (!r.ok) throw new Error('Save failed');
-        return r.json();
-    })
-    .then(function(data) {
-        feedback.textContent = 'Settings saved successfully.';
-        feedback.style.color = '#22c55e';
-        setTimeout(function(){ feedback.textContent = ''; }, 3000);
-    })
-    .catch(function(err) {
-        feedback.textContent = 'Error saving settings.';
-        feedback.style.color = '#ef4444';
-    });
+  var payload = {
+    digest_schedule_hour:    parseInt(document.getElementById('s-digest-hour').value, 10),
+    digest_schedule_minute:  parseInt(document.getElementById('s-digest-minute').value, 10),
+    breaking_news_threshold: parseInt(document.getElementById('s-breaking-threshold').value, 10),
+    scrape_interval_minutes: parseInt(document.getElementById('s-scrape-interval').value, 10),
+    log_level:               document.getElementById('s-log-level').value,
+  };
+
+  fetch('/admin/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('Save failed (HTTP ' + r.status + ')');
+    return r.json();
+  })
+  .then(function() {
+    showToast('Settings saved successfully', 'success');
+  })
+  .catch(function(err) {
+    showToast('Error saving settings: ' + err.message, 'error');
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save"></i> Save Settings';
+    if (window.lucide) lucide.createIcons({ nodes: [btn] });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadSettings();
+  if (window.lucide) lucide.createIcons();
 });
-
-document.addEventListener('DOMContentLoaded', loadSettings);
 </script>
 {% endblock %}

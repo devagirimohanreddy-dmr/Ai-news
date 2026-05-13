@@ -11,7 +11,7 @@ from src.scrapers.base import BaseScraper, RawArticle
 
 logger = logging.getLogger(__name__)
 
-ARXIV_API_BASE = "http://export.arxiv.org/api/query"
+ARXIV_API_BASE = "https://export.arxiv.org/api/query"
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
 ARXIV_NS = "{http://arxiv.org/schemas/atom}"
 
@@ -43,6 +43,7 @@ class ArxivScraper(BaseScraper):
             self._client = httpx.AsyncClient(
                 headers={"User-Agent": "AI-News-Aggregator-Bot/0.1"},
                 timeout=60.0,
+                follow_redirects=True,
             )
         return self._client
 

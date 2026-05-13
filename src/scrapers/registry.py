@@ -158,6 +158,8 @@ def _register_all() -> None:
     """Import and register every concrete scraper."""
     from src.scrapers.rss_scraper import RssScraper
     from src.scrapers.github_scraper import GitHubScraper
+    from src.scrapers.hn_scraper import HackerNewsScraper
+    from src.scrapers.arxiv_scraper import ArxivScraper
     from src.scrapers.reddit_scraper import RedditScraper
     from src.scrapers.twitter_scraper import TwitterScraper
     from src.scrapers.linkedin_scraper import LinkedInScraper
@@ -167,6 +169,8 @@ def _register_all() -> None:
 
     ScraperRegistry.register("rss", RssScraper)
     ScraperRegistry.register("github", GitHubScraper)
+    ScraperRegistry.register("hn", HackerNewsScraper)
+    ScraperRegistry.register("arxiv", ArxivScraper)
     ScraperRegistry.register("reddit", RedditScraper)
     ScraperRegistry.register("twitter", TwitterScraper)
     ScraperRegistry.register("linkedin", LinkedInScraper)

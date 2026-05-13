@@ -4,143 +4,252 @@
 {% block title %}Sources{% endblock %}
 
 {% block content %}
-<h1>Sources Management</h1>
 
-<!-- Add Source Form -->
-<details id="add-source-form" style="margin-bottom:1rem;">
-    <summary role="button" class="outline">+ Add New Source</summary>
-    <form hx-post="/admin/api/sources"
-          hx-target="#sources-table-body"
-          hx-swap="innerHTML"
-          hx-on::after-request="if(event.detail.successful) { this.reset(); loadSources(); }"
-          style="margin-top:.75rem;">
-        <div class="form-grid">
-            <div>
-                <label for="name">Name</label>
-                <input type="text" id="name" name="name" required placeholder="Source name">
-            </div>
-            <div>
-                <label for="url">URL</label>
-                <input type="url" id="url" name="url" required placeholder="https://...">
-            </div>
-            <div>
-                <label for="scraper_type">Scraper Type</label>
-                <select id="scraper_type" name="scraper_type" required>
-                    <option value="rss">RSS</option>
-                    <option value="api">API</option>
-                    <option value="firecrawl">Firecrawl</option>
-                    <option value="playwright">Playwright</option>
-                    <option value="readability">Readability</option>
-                </select>
-            </div>
-            <div>
-                <label for="schedule_cron">Cron Schedule</label>
-                <input type="text" id="schedule_cron" name="schedule_cron" placeholder="*/30 * * * *">
-            </div>
-            <div>
-                <label for="priority">Priority (1-3)</label>
-                <input type="number" id="priority" name="priority" value="1" min="1" max="3">
-            </div>
-            <div>
-                <label for="config_json">Config JSON</label>
-                <input type="text" id="config_json" name="config_json" placeholder='{"key":"val"}'>
-            </div>
-        </div>
-        <div class="form-actions">
-            <button type="submit">Add Source</button>
-        </div>
-    </form>
-</details>
-
-<!-- Sources Table -->
-<div class="table-wrap">
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>URL</th>
-                <th>Type</th>
-                <th>Schedule</th>
-                <th>Priority</th>
-                <th>Last Scraped</th>
-                <th>Errors</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="sources-table-body">
-            <tr><td colspan="9" class="text-muted">Loading...</td></tr>
-        </tbody>
-    </table>
+<div class="page-header">
+  <div>
+    <h1>Sources</h1>
+    <p class="page-subtitle">Manage news and data source scrapers</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn-primary" onclick="toggleAddForm()">
+      <i data-lucide="plus"></i> Add New Source
+    </button>
+  </div>
 </div>
+
+<!-- ── Add Source Form ─────────────────────────────────── -->
+<div id="add-source-panel" style="display:none;margin-bottom:1.25rem;">
+  <div class="form-section">
+    <div class="form-section-title">
+      <i data-lucide="plus-circle"></i>
+      Add New Source
+    </div>
+    <form id="new-source-form">
+      <div class="form-grid">
+        <div>
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" required placeholder="e.g. OpenAI Blog">
+        </div>
+        <div>
+          <label for="url">URL</label>
+          <input type="url" id="url" name="url" required placeholder="https://…">
+        </div>
+        <div>
+          <label for="scraper_type">Scraper Type</label>
+          <select id="scraper_type" name="scraper_type" required onchange="updateConfigHint()">
+            <option value="rss">RSS — any RSS/Atom feed</option>
+            <option value="hn">Hacker News — top stories</option>
+            <option value="arxiv">arXiv — research papers</option>
+            <option value="reddit">Reddit — subreddit posts</option>
+            <option value="github">GitHub Trending</option>
+            <option value="twitter">Twitter / X</option>
+            <option value="youtube">YouTube channels</option>
+            <option value="newsapi">NewsAPI</option>
+            <option value="telegram">Telegram channel</option>
+            <option value="linkedin">LinkedIn</option>
+          </select>
+        </div>
+        <div>
+          <label for="priority">Priority (1–3)</label>
+          <input type="number" id="priority" name="priority" value="1" min="1" max="3">
+        </div>
+        <div style="grid-column:1/-1;">
+          <label for="config_json">
+            Config JSON
+            <span id="config-hint" class="text-xs text-muted" style="margin-left:.5rem;font-weight:400;"></span>
+          </label>
+          <input type="text" id="config_json" name="config_json" placeholder="{}">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">
+          <i data-lucide="save"></i> Add Source
+        </button>
+        <button type="button" class="btn-secondary" onclick="toggleAddForm()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Sources Table ───────────────────────────────────── -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>URL</th>
+        <th>Type</th>
+        <th>Priority</th>
+        <th>Last Scraped</th>
+        <th>Errors</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="sources-table-body">
+      <tr>
+        <td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted);">
+          Loading sources…
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-function loadSources() {
-    fetch('/admin/api/sources')
-        .then(function(r){ return r.json(); })
-        .then(function(sources) {
-            var tbody = document.getElementById('sources-table-body');
-            if (!sources.length) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-muted">No sources configured.</td></tr>';
-                return;
-            }
-            var html = '';
-            sources.forEach(function(s) {
-                var statusBadge = s.enabled
-                    ? '<span class="badge badge-success">Enabled</span>'
-                    : '<span class="badge badge-muted">Disabled</span>';
-                var errorBadge = s.error_count > 0
-                    ? '<span class="badge badge-danger">' + s.error_count + '</span>'
-                    : '<span class="badge badge-success">0</span>';
-                var lastScraped = s.last_scraped_at
-                    ? new Date(s.last_scraped_at).toLocaleString()
-                    : 'Never';
-                var urlShort = s.url.length > 40 ? s.url.substring(0, 40) + '...' : s.url;
+var CONFIG_HINTS = {
+  rss:      '{"feed_url":"https://example.com/feed.xml"} — or leave empty to use URL above',
+  hn:       '{} — no config needed',
+  arxiv:    '{"query":"AI safety","max_results":20}',
+  reddit:   '{"subreddit":"MachineLearning","limit":25}',
+  github:   '{"language":"python","since":"daily"}',
+  twitter:  '{"query":"AI","max_results":20}',
+  youtube:  '{"channel_ids":["UCxxx"],"max_results":10}',
+  newsapi:  '{"query":"artificial intelligence","page_size":20}',
+  telegram: '{"channel_username":"ai_news_channel"}',
+  linkedin: '{"company_ids":["openai"],"max_results":10}',
+};
 
-                html += '<tr id="source-row-' + s.id + '">';
-                html += '<td>' + s.name + '</td>';
-                html += '<td class="text-sm"><a href="' + s.url + '" target="_blank">' + urlShort + '</a></td>';
-                html += '<td><span class="badge badge-info">' + s.scraper_type + '</span></td>';
-                html += '<td class="text-sm">' + (s.schedule_cron || '-') + '</td>';
-                html += '<td>' + s.priority + '</td>';
-                html += '<td class="text-sm">' + lastScraped + '</td>';
-                html += '<td>' + errorBadge + '</td>';
-                html += '<td>' + statusBadge + '</td>';
-                html += '<td style="white-space:nowrap;">';
-                html += '<button class="outline" style="padding:.25rem .5rem;font-size:.78rem;margin-right:.25rem;" onclick="toggleSource(' + s.id + ')">' + (s.enabled ? 'Disable' : 'Enable') + '</button>';
-                html += '<button class="outline" style="padding:.25rem .5rem;font-size:.78rem;margin-right:.25rem;" onclick="scrapeNow(' + s.id + ')">Scrape Now</button>';
-                html += '<button class="outline secondary" style="padding:.25rem .5rem;font-size:.78rem;" onclick="deleteSource(' + s.id + ')">Delete</button>';
-                html += '</td>';
-                html += '</tr>';
-            });
-            tbody.innerHTML = html;
-        });
+function toggleAddForm() {
+  var panel = document.getElementById('add-source-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (window.lucide) lucide.createIcons();
+}
+
+function updateConfigHint() {
+  var sel = document.getElementById('scraper_type');
+  var hint = document.getElementById('config-hint');
+  if (sel && hint) hint.textContent = CONFIG_HINTS[sel.value] || '';
+}
+
+function loadSources() {
+  fetch('/admin/api/sources')
+    .then(function(r) { return r.json(); })
+    .then(function(sources) {
+      var tbody = document.getElementById('sources-table-body');
+      if (!sources.length) {
+        tbody.innerHTML =
+          '<tr><td colspan="8" style="text-align:center;padding:3rem;color:var(--text-muted);">' +
+          'No sources configured yet. Add one to get started.' +
+          '</td></tr>';
+        return;
+      }
+      var html = '';
+      sources.forEach(function(s) {
+        var statusBadge = s.enabled
+          ? '<span class="badge badge-success"><span class="status-dot green" style="width:6px;height:6px;margin-right:.2rem;"></span>Enabled</span>'
+          : '<span class="badge badge-muted">Disabled</span>';
+        var errorBadge = s.error_count > 0
+          ? '<span class="badge badge-danger">' + s.error_count + '</span>'
+          : '<span class="badge badge-success">0</span>';
+        var lastScraped = s.last_scraped_at
+          ? new Date(s.last_scraped_at).toLocaleString()
+          : '<span class="text-muted">Never</span>';
+        var urlShort = s.url.length > 42 ? s.url.substring(0, 42) + '…' : s.url;
+
+        html += '<tr id="source-row-' + s.id + '">';
+        html += '<td><span style="font-weight:600;">' + escHtml(s.name) + '</span></td>';
+        html += '<td class="text-sm"><a href="' + escHtml(s.url) + '" target="_blank" rel="noopener" style="color:var(--primary);">' + escHtml(urlShort) + '</a></td>';
+        html += '<td><span class="badge badge-info">' + escHtml(s.scraper_type) + '</span></td>';
+        html += '<td><span style="font-weight:600;color:var(--text-secondary);">' + s.priority + '</span></td>';
+        html += '<td class="text-sm text-muted">' + lastScraped + '</td>';
+        html += '<td>' + errorBadge + '</td>';
+        html += '<td>' + statusBadge + '</td>';
+        html += '<td>';
+        html += '<div style="display:flex;gap:.375rem;flex-wrap:nowrap;">';
+        html += '<button class="btn-secondary btn-sm" onclick="toggleSource(' + s.id + ')">' + (s.enabled ? 'Disable' : 'Enable') + '</button>';
+        html += '<button class="btn-secondary btn-sm" onclick="scrapeNow(' + s.id + ', \'' + escHtml(s.name) + '\')"><i data-lucide="refresh-cw" style="width:11px;height:11px;"></i> Scrape</button>';
+        html += '<button class="btn-danger btn-sm" onclick="deleteSource(' + s.id + ')"><i data-lucide="trash-2" style="width:11px;height:11px;"></i></button>';
+        html += '</div>';
+        html += '</td>';
+        html += '</tr>';
+      });
+      tbody.innerHTML = html;
+      if (window.lucide) lucide.createIcons({ nodes: [tbody] });
+    });
 }
 
 function toggleSource(id) {
-    fetch('/admin/api/sources/' + id + '/toggle', { method: 'POST' })
-        .then(function(){ loadSources(); });
+  fetch('/admin/api/sources/' + id + '/toggle', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(src) {
+      showToast(src.name + ' ' + (src.enabled ? 'enabled' : 'disabled'), 'success');
+      loadSources();
+    })
+    .catch(function() { showToast('Failed to toggle source', 'error'); });
 }
 
-function scrapeNow(id) {
-    fetch('/admin/api/sources/' + id + '/scrape', { method: 'POST' })
-        .then(function(r){ return r.json(); })
-        .then(function(data) {
-            var flash = document.getElementById('flash-area');
-            flash.innerHTML = '<div class="flash-success">Scrape task dispatched for ' + (data.source || 'source') + ' (task: ' + (data.task_id || 'queued') + ')</div>';
-            setTimeout(function(){ flash.innerHTML = ''; }, 4000);
-        });
+function scrapeNow(id, name) {
+  fetch('/admin/api/sources/' + id + '/scrape', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      showToast('Scrape dispatched for ' + name + (data.task_id ? ' (task: ' + data.task_id + ')' : ''), 'success');
+    })
+    .catch(function() { showToast('Failed to dispatch scrape', 'error'); });
 }
 
 function deleteSource(id) {
-    if (!confirm('Delete this source?')) return;
-    fetch('/admin/api/sources/' + id, { method: 'DELETE' })
-        .then(function(){ loadSources(); });
+  if (!confirm('Delete this source? This cannot be undone.')) return;
+  fetch('/admin/api/sources/' + id, { method: 'DELETE' })
+    .then(function() {
+      showToast('Source deleted', 'success');
+      loadSources();
+    })
+    .catch(function() { showToast('Failed to delete source', 'error'); });
 }
 
-// Load on page ready
-document.addEventListener('DOMContentLoaded', loadSources);
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadSources();
+  updateConfigHint();
+
+  document.getElementById('scraper_type').addEventListener('change', updateConfigHint);
+
+  document.getElementById('new-source-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var form = e.target;
+    var configRaw = form.config_json.value.trim();
+    var configParsed = null;
+    if (configRaw && configRaw !== '{}') {
+      try { configParsed = JSON.parse(configRaw); }
+      catch(_) {
+        showToast('Invalid JSON in Config field', 'error');
+        return;
+      }
+    }
+    var payload = {
+      name: form.name.value.trim(),
+      url: form.url.value.trim(),
+      scraper_type: form.scraper_type.value,
+      priority: parseInt(form.priority.value, 10) || 1,
+      config_json: configParsed,
+    };
+    fetch('/admin/api/sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error(JSON.stringify(d.detail || d)); });
+      return r.json();
+    })
+    .then(function(src) {
+      showToast('Source "' + escHtml(src.name) + '" added!', 'success');
+      form.reset();
+      updateConfigHint();
+      document.getElementById('add-source-panel').style.display = 'none';
+      loadSources();
+    })
+    .catch(function(err) {
+      showToast('Error: ' + err.message, 'error');
+    });
+  });
+});
 </script>
 {% endblock %}

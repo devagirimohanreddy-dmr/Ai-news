@@ -47,12 +47,14 @@ class ArticlePipeline:
     reached.
     """
 
-    def __init__(self, session: AsyncSession, llm_router: Any = None):
+    def __init__(self, session: AsyncSession, llm_router: Any = None,
+                 source_id: int | None = None):
         self.session = session
         self.llm_router = llm_router
+        self.source_id = source_id
 
         # Pre-instantiate stages so they share the session and router.
-        self._ingest = IngestStage(session=session)
+        self._ingest = IngestStage(session=session, source_id=source_id)
         self._stages = [
             cls(session=session, llm_router=llm_router)
             for cls in _POST_INGEST_STAGES
@@ -78,6 +80,9 @@ class ArticlePipeline:
                 exc_info=True,
             )
             return None
+
+        if article is None:
+            return None  # duplicate URL, already logged in IngestStage
 
         # --- Stages 2-6 ---
         for stage in self._stages:

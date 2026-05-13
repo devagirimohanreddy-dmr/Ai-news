@@ -4,65 +4,83 @@
 {% block title %}Logs{% endblock %}
 
 {% block content %}
-<h1>Post Logs</h1>
 
-<!-- Filters -->
+<div class="page-header">
+  <div>
+    <h1>Post Logs</h1>
+    <p class="page-subtitle">Monitor article delivery and notification history</p>
+  </div>
+  <div class="page-actions">
+    <span class="refresh-badge">
+      <span class="status-dot green"></span>
+      Auto-refreshing every 10s
+    </span>
+  </div>
+</div>
+
+<!-- ── Filters ──────────────────────────────────────────── -->
 <div class="toolbar">
-    <div>
-        <label class="text-sm" for="log-type">Type</label>
-        <select id="log-type">
-            <option value="">All</option>
-            <option value="alert">Alert</option>
-            <option value="digest">Digest</option>
-            <option value="user_request">User Request</option>
-        </select>
-    </div>
-    <div>
-        <label class="text-sm" for="log-status">Status</label>
-        <select id="log-status">
-            <option value="">All</option>
-            <option value="success">Success</option>
-            <option value="failed">Failed</option>
-            <option value="pending">Pending</option>
-        </select>
-    </div>
-    <div>
-        <label class="text-sm" for="log-date-from">From</label>
-        <input type="date" id="log-date-from">
-    </div>
-    <div>
-        <label class="text-sm" for="log-date-to">To</label>
-        <input type="date" id="log-date-to">
-    </div>
-    <div>
-        <label class="text-sm">&nbsp;</label>
-        <button onclick="logPage=1;loadLogs();">Filter</button>
-    </div>
+  <div>
+    <label for="log-type">Type</label>
+    <select id="log-type" onchange="logPage=1;loadLogs();">
+      <option value="">All</option>
+      <option value="alert">Alert</option>
+      <option value="digest">Digest</option>
+      <option value="user_request">User Request</option>
+    </select>
+  </div>
+  <div>
+    <label for="log-status">Status</label>
+    <select id="log-status" onchange="logPage=1;loadLogs();">
+      <option value="">All</option>
+      <option value="success">Success</option>
+      <option value="failed">Failed</option>
+      <option value="pending">Pending</option>
+    </select>
+  </div>
+  <div>
+    <label for="log-date-from">From</label>
+    <input type="date" id="log-date-from" onchange="logPage=1;loadLogs();">
+  </div>
+  <div>
+    <label for="log-date-to">To</label>
+    <input type="date" id="log-date-to" onchange="logPage=1;loadLogs();">
+  </div>
+  <div style="align-self:flex-end;">
+    <button class="btn-primary btn-sm" onclick="logPage=1;loadLogs();">
+      <i data-lucide="filter"></i> Filter
+    </button>
+  </div>
 </div>
 
-<!-- Logs Table (auto-refreshes every 10s) -->
+<!-- ── Logs Table (HTMX auto-refresh every 10s) ────────── -->
 <div class="table-wrap">
-    <table>
-        <thead>
-            <tr>
-                <th>Type</th>
-                <th>Article</th>
-                <th>Channel</th>
-                <th>Status</th>
-                <th>Time</th>
-            </tr>
-        </thead>
-        <tbody id="logs-table-body"
-               hx-get="/admin/api/logs"
-               hx-trigger="load, every 10s"
-               hx-swap="innerHTML">
-            <tr><td colspan="5" class="text-muted">Loading...</td></tr>
-        </tbody>
-    </table>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Article</th>
+        <th>Channel</th>
+        <th>Status</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="logs-table-body"
+           hx-get="/admin/api/logs"
+           hx-trigger="load, every 10s"
+           hx-swap="innerHTML">
+      <tr>
+        <td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">
+          Loading logs…
+        </td>
+      </tr>
+    </tbody>
+  </table>
 </div>
 
-<!-- Pagination -->
+<!-- ── Pagination ───────────────────────────────────────── -->
 <div class="pagination" id="logs-pagination"></div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -70,74 +88,97 @@
 var logPage = 1;
 
 function buildLogQuery() {
-    var params = new URLSearchParams();
-    params.set('page', logPage);
-    var t = document.getElementById('log-type').value;
-    if (t) params.set('post_type', t);
-    var s = document.getElementById('log-status').value;
-    if (s) params.set('status', s);
-    var df = document.getElementById('log-date-from').value;
-    if (df) params.set('date_from', df);
-    var dt = document.getElementById('log-date-to').value;
-    if (dt) params.set('date_to', dt);
-    return params.toString();
+  var params = new URLSearchParams();
+  params.set('page', logPage);
+  var t = document.getElementById('log-type').value;
+  if (t) params.set('post_type', t);
+  var s = document.getElementById('log-status').value;
+  if (s) params.set('status', s);
+  var df = document.getElementById('log-date-from').value;
+  if (df) params.set('date_from', df);
+  var dt = document.getElementById('log-date-to').value;
+  if (dt) params.set('date_to', dt);
+  return params.toString();
 }
 
 function loadLogs() {
-    fetch('/admin/api/logs?' + buildLogQuery())
-        .then(function(r){ return r.json(); })
-        .then(function(data) {
-            renderLogs(data);
-        });
+  fetch('/admin/api/logs?' + buildLogQuery())
+    .then(function(r) { return r.json(); })
+    .then(function(data) { renderLogs(data); });
 }
 
 function renderLogs(data) {
-    var tbody = document.getElementById('logs-table-body');
-    if (!data.items || !data.items.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No logs found.</td></tr>';
-        document.getElementById('logs-pagination').innerHTML = '';
-        return;
-    }
-    var html = '';
-    data.items.forEach(function(l) {
-        var typeBadge = l.post_type === 'alert' ? 'badge-danger' :
-                        l.post_type === 'digest' ? 'badge-info' : 'badge-muted';
-        var statusBadge = l.status === 'success' ? 'badge-success' :
-                          l.status === 'failed' ? 'badge-danger' : 'badge-warning';
-        html += '<tr>';
-        html += '<td><span class="badge ' + typeBadge + '">' + l.post_type + '</span></td>';
-        html += '<td class="text-sm">' + (l.article_title || 'N/A') + '</td>';
-        html += '<td class="text-sm">' + (l.teams_channel || '-') + '</td>';
-        html += '<td><span class="badge ' + statusBadge + '">' + l.status + '</span></td>';
-        html += '<td class="text-sm">' + (l.posted_at ? new Date(l.posted_at).toLocaleString() : '-') + '</td>';
-        html += '</tr>';
-    });
-    tbody.innerHTML = html;
+  var tbody = document.getElementById('logs-table-body');
+  if (!data.items || !data.items.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="5" style="text-align:center;padding:3rem;color:var(--text-muted);">' +
+      'No log entries found.' +
+      '</td></tr>';
+    document.getElementById('logs-pagination').innerHTML = '';
+    return;
+  }
 
-    // Pagination
-    var pag = '';
-    for (var i = 1; i <= data.pages; i++) {
-        if (i === data.page) {
-            pag += '<span class="current">' + i + '</span>';
-        } else {
-            pag += '<a href="#" onclick="logPage=' + i + ';loadLogs();return false;">' + i + '</a>';
-        }
+  var html = '';
+  data.items.forEach(function(l) {
+    var typeBadge = l.post_type === 'alert'
+      ? 'badge-danger'
+      : (l.post_type === 'digest' ? 'badge-info' : 'badge-muted');
+    var statusBadge = l.status === 'success'
+      ? 'badge-success'
+      : (l.status === 'failed' ? 'badge-danger' : 'badge-warning');
+    var timeStr = l.posted_at ? new Date(l.posted_at).toLocaleString() : '—';
+
+    html += '<tr>';
+    html += '<td><span class="badge ' + typeBadge + '">' + escHtml(l.post_type) + '</span></td>';
+    html += '<td class="text-sm" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(l.article_title || '') + '">' +
+            escHtml(l.article_title || '<span class="text-muted">N/A</span>') + '</td>';
+    html += '<td class="text-sm text-muted">' + escHtml(l.teams_channel || '—') + '</td>';
+    html += '<td><span class="badge ' + statusBadge + '">';
+    if (l.status === 'success') html += '<i data-lucide="check" style="width:10px;height:10px;"></i> ';
+    else if (l.status === 'failed') html += '<i data-lucide="x" style="width:10px;height:10px;"></i> ';
+    html += escHtml(l.status) + '</span></td>';
+    html += '<td class="text-sm text-muted">' + timeStr + '</td>';
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+  if (window.lucide) lucide.createIcons({ nodes: [tbody] });
+
+  // Pagination
+  var totalPages = data.pages || 1;
+  var pag = '';
+  if (logPage > 1) {
+    pag += '<a href="#" onclick="logPage=' + (logPage - 1) + ';loadLogs();return false;">&lsaquo; Prev</a>';
+  }
+  for (var i = 1; i <= totalPages; i++) {
+    if (i === logPage) {
+      pag += '<span class="current">' + i + '</span>';
+    } else {
+      pag += '<a href="#" onclick="logPage=' + i + ';loadLogs();return false;">' + i + '</a>';
     }
-    document.getElementById('logs-pagination').innerHTML = pag;
+  }
+  if (logPage < totalPages) {
+    pag += '<a href="#" onclick="logPage=' + (logPage + 1) + ';loadLogs();return false;">Next &rsaquo;</a>';
+  }
+  document.getElementById('logs-pagination').innerHTML = pag;
 }
 
-// Intercept the HTMX auto-refresh to use our custom rendering
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Intercept HTMX auto-refresh to use our custom rendering
 document.body.addEventListener('htmx:beforeSwap', function(evt) {
-    if (evt.detail.target.id !== 'logs-table-body') return;
-    try {
-        var data = JSON.parse(evt.detail.xhr.responseText);
-        renderLogs(data);
-        evt.detail.shouldSwap = false;
-    } catch(e) {}
+  if (evt.detail.target.id !== 'logs-table-body') return;
+  try {
+    var data = JSON.parse(evt.detail.xhr.responseText);
+    renderLogs(data);
+    evt.detail.shouldSwap = false;
+  } catch(e) {}
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initial load is handled by HTMX hx-trigger="load"
+  if (window.lucide) lucide.createIcons();
+  // Initial load handled by HTMX hx-trigger="load"
 });
 </script>
 {% endblock %}

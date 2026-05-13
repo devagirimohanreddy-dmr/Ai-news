@@ -1,100 +1,117 @@
-"""Backfill image_url for existing articles by re-scraping RSS feeds."""
+"""Backfill image_url for existing articles by fetching og:image / twitter:image
+directly from each article's URL.
 
+Usage:
+    python -m scripts.backfill_images               # backfill all articles missing images
+    python -m scripts.backfill_images --limit 100   # limit to 100 articles
+    python -m scripts.backfill_images --concurrency 8
+"""
+
+from __future__ import annotations
+
+import argparse
 import asyncio
-import re
-import hashlib
-import feedparser
-from datetime import datetime, timezone
+import logging
 
-from sqlalchemy import select, update
+import httpx
+from sqlalchemy import select
 
-from src.models.base import get_session_factory
 from src.models.article import Article
+from src.models.base import get_session_factory
+from src.scrapers.image_extractor import fetch_article_image
+
+logger = logging.getLogger(__name__)
 
 
-def extract_image_from_feed_entry(entry):
-    """Extract image URL from a feed entry."""
-    # media:thumbnail
-    thumbs = getattr(entry, "media_thumbnail", None)
-    if thumbs:
-        for t in thumbs:
-            url = t.get("url", "")
-            if url:
-                return url
-
-    # media:content
-    media = getattr(entry, "media_content", None)
-    if media:
-        for m in media:
-            if m.get("medium") == "image" or (m.get("type", "").startswith("image/")):
-                return m.get("url", "")
-            url = m.get("url", "")
-            if url and any(ext in url.lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
-                return url
-
-    # Enclosures
-    for enc in getattr(entry, "enclosures", []):
-        if enc.get("type", "").startswith("image/"):
-            return enc.get("href", "") or enc.get("url", "")
-
-    # <img> in content
-    content = ""
-    if hasattr(entry, "content") and entry.content:
-        try:
-            content = entry.content[0].get("value", "")
-        except Exception:
-            pass
-    if not content:
-        content = getattr(entry, "summary", "") or getattr(entry, "description", "")
-
-    if content:
-        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', content)
-        if img_match:
-            return img_match.group(1)
-
-    return None
+async def _process_one(
+    sem: asyncio.Semaphore,
+    client: httpx.AsyncClient,
+    article: Article,
+) -> tuple[int, str | None]:
+    async with sem:
+        image_url = await fetch_article_image(article.url, client=client)
+        return article.id, image_url
 
 
-async def main():
-    feeds = [
-        "https://techcrunch.com/feed/",
-        "https://www.theverge.com/rss/index.xml",
-        "https://feeds.arstechnica.com/arstechnica/index",
-    ]
-
-    # Build URL -> image_url mapping from feeds
-    url_to_image = {}
-    for feed_url in feeds:
-        print(f"Parsing {feed_url}...")
-        feed = feedparser.parse(feed_url)
-        for entry in feed.get("entries", []):
-            link = getattr(entry, "link", "")
-            if link:
-                img = extract_image_from_feed_entry(entry)
-                if img:
-                    url_to_image[link] = img
-
-    print(f"\nFound images for {len(url_to_image)} URLs")
-
-    # Update database
+async def main(limit: int | None, concurrency: int) -> None:
     session_factory = get_session_factory()
-    updated = 0
+
     async with session_factory() as session:
-        result = await session.execute(
-            select(Article).where(Article.image_url.is_(None))
-        )
+        stmt = select(Article).where(Article.image_url.is_(None))
+        if limit:
+            stmt = stmt.limit(limit)
+        result = await session.execute(stmt)
         articles = result.scalars().all()
 
-        for article in articles:
-            if article.url in url_to_image:
-                article.image_url = url_to_image[article.url]
-                updated += 1
-                print(f"  [SET] {article.title[:50]}... -> {url_to_image[article.url][:80]}")
+    total = len(articles)
+    print(f"Found {total} articles without images.")
+    if not articles:
+        return
 
+    sem = asyncio.Semaphore(concurrency)
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(connect=4.0, read=8.0, write=4.0, pool=4.0),
+        follow_redirects=True,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
+            ),
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/avif,image/webp,image/apng,*/*;q=0.8"
+            ),
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Upgrade-Insecure-Requests": "1",
+        },
+    ) as client:
+        tasks = [_process_one(sem, client, a) for a in articles]
+        results: list[tuple[int, str | None]] = []
+        for i, coro in enumerate(asyncio.as_completed(tasks), start=1):
+            article_id, image_url = await coro
+            results.append((article_id, image_url))
+            if i % 20 == 0 or i == total:
+                found = sum(1 for _, u in results if u)
+                print(f"  Progress: {i}/{total} processed, {found} images found.")
+
+    # Persist results
+    updates = [(aid, url) for aid, url in results if url]
+    print(f"\nWriting {len(updates)} image URLs to the database...")
+
+    async with session_factory() as session:
+        for article_id, image_url in updates:
+            stmt = select(Article).where(Article.id == article_id)
+            res = await session.execute(stmt)
+            article = res.scalar_one_or_none()
+            if article is not None:
+                article.image_url = image_url
         await session.commit()
 
-    print(f"\nUpdated {updated} articles with images.")
+    print(f"Done. Updated {len(updates)} / {total} articles.")
+
+
+def cli() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Maximum articles to process"
+    )
+    parser.add_argument(
+        "--concurrency", type=int, default=8, help="Concurrent HTTP requests"
+    )
+    parser.add_argument("--verbose", "-v", action="store_true")
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
+    asyncio.run(main(limit=args.limit, concurrency=args.concurrency))
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    cli()

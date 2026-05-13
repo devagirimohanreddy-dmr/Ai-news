@@ -7,6 +7,8 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.bot.services.teams_webhook import send_article_notification
+from src.config.settings import settings
 from src.models.article import Article
 from src.models.post_log import PostLog
 from src.models.subscription import Subscription
@@ -50,7 +52,11 @@ class RouteStage(PipelineStage):
         # 3. Subscriber notifications
         await self._notify_subscribers(article)
 
-        # 4. Create PostLog record
+        # 4. Teams channel notification — only for allowlisted sources whose
+        #    article cleared the importance threshold.
+        await self._notify_teams_channel(article)
+
+        # 5. Create PostLog record
         post_type = "alert" if article.is_breaking else "digest"
         post_log = PostLog(
             article_id=article.id,
@@ -69,6 +75,32 @@ class RouteStage(PipelineStage):
             post_type,
         )
         return article
+
+    # ------------------------------------------------------------------
+    # Teams channel notification (Power Automate webhook)
+    # ------------------------------------------------------------------
+
+    async def _notify_teams_channel(self, article: Article) -> None:
+        """Post the article to Teams if its source is on the allowlist."""
+        if not settings.TEAMS_NOTIFICATIONS_ENABLED:
+            return
+        if not settings.TEAMS_WEBHOOK_URL:
+            return
+        if not article.source or not getattr(article.source, "notify_to_teams", False):
+            return
+        # Importance gate — breaking news bypasses the threshold.
+        if not article.is_breaking and (article.importance_score or 0) < settings.TEAMS_NOTIFICATION_MIN_SCORE:
+            logger.debug(
+                "Teams notification skipped — article id=%s score %d below threshold %d",
+                article.id, article.importance_score or 0, settings.TEAMS_NOTIFICATION_MIN_SCORE,
+            )
+            return
+        try:
+            await send_article_notification(article)
+        except Exception:
+            logger.warning(
+                "Teams notification failed for article id=%s", article.id, exc_info=True
+            )
 
     # ------------------------------------------------------------------
     # Breaking-news dispatch
@@ -107,6 +139,7 @@ class RouteStage(PipelineStage):
 
     async def _notify_subscribers(self, article: Article) -> None:
         """Queue notification tasks for users subscribed to the article's categories."""
+        await self.session.refresh(article, ["categories"])
         if not article.categories:
             return
 

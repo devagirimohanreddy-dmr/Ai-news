@@ -22,6 +22,10 @@ class Source(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     last_scraped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     error_count: Mapped[int] = mapped_column(Integer, default=0)
+    notify_to_teams: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false",
+        comment="If true, new articles from this source trigger Teams notifications",
+    )
     config_json: Mapped[Optional[dict]] = mapped_column(
         JSONB, nullable=True, comment="Per-source config: API keys, CSS selectors, etc."
     )
