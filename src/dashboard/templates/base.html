@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Admin{% endblock %} — AI News</title>
+  <title>{% block title %}Admin{% endblock %} — AI-News Aggregator</title>
+  <link rel="icon" type="image/svg+xml" href="/admin/static/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/admin/static/style.css?v=15">
+  <link rel="stylesheet" href="/admin/static/style.css?v=17">
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   {% block head_extra %}{% endblock %}
@@ -34,9 +35,9 @@
   <aside class="sidebar" id="sidebar">
 
     <div class="sidebar-brand">
-      <div class="sb-icon"><i data-lucide="zap"></i></div>
+      <img class="sb-logo" src="/admin/static/logo.svg" alt="AI-News Aggregator logo">
       <div>
-        <div class="sb-name">AI News</div>
+        <div class="sb-name">AI-News Aggregator</div>
         <div class="sb-sub">Admin Dashboard</div>
       </div>
     </div>

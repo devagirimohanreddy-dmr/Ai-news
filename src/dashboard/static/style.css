@@ -133,15 +133,27 @@ body { background: var(--bg); color: var(--tx); }
   flex-shrink: 0;
 }
 .sb-icon {
-  width: 34px; height: 34px;
+  width: 36px; height: 36px;
   background: rgba(255,255,255,.18);
   border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   color: #fff;
 }
-.sb-icon svg { width: 17px; height: 17px; }
-.sb-name { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: -.01em; }
+.sb-icon svg { width: 18px; height: 18px; }
+.sb-logo {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,.15);
+  display: block;
+}
+.sb-name {
+  font-size: 13px; font-weight: 700; color: #fff;
+  letter-spacing: -.015em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
 .sb-sub  { font-size: 11px; color: var(--sb-text); }
 
 /* Nav links */
