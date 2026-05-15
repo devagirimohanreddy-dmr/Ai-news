@@ -266,6 +266,7 @@ class TestFirecrawlScraperRequest:
 
         scraper = FirecrawlScraper(single_url_config)
         scraper._client = mock_client
+        scraper._base_url = "http://localhost:3002"
 
         await scraper.scrape()
 

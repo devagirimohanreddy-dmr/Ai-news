@@ -19,7 +19,13 @@ class Settings(BaseSettings):
 
     # Local LLM / Scraping
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    FIRECRAWL_BASE_URL: str = "http://localhost:3002"
+
+    # Firecrawl is optional. Leave empty to disable — health check will
+    # report "skipped" and any firecrawl-typed sources will be skipped at
+    # scrape time. Set to the hosted API ("https://api.firecrawl.dev") with
+    # a FIRECRAWL_API_KEY, or to a self-hosted instance URL.
+    FIRECRAWL_BASE_URL: str | None = None
+    FIRECRAWL_API_KEY: str | None = None
 
     # Social Media / News APIs
     TWITTER_BEARER_TOKEN: str | None = None

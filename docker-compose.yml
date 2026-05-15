@@ -21,6 +21,8 @@ services:
   # One-shot LLM model puller.
   # Waits for Ollama to be ready, then pulls llama3.2:3b once and exits.
   # The model lives on the `ollama_data` volume so re-runs are cheap.
+  # Retries the pull up to 5 times because Docker DNS to registry.ollama.ai
+  # is occasionally flaky on the first container boot.
   # ---------------------------------------------------------------------------
   ollama-init:
     image: ollama/ollama:latest
@@ -32,7 +34,17 @@ services:
       "until ollama list >/dev/null 2>&1; do
          echo 'waiting for ollama to be ready...'; sleep 2;
        done;
-       ollama pull llama3.2:3b"
+       if ollama list | grep -q 'llama3.2:3b'; then
+         echo 'llama3.2:3b already present, skipping pull'; exit 0;
+       fi;
+       for i in 1 2 3 4 5; do
+         echo \"ollama pull attempt $$i/5\";
+         if ollama pull llama3.2:3b; then
+           echo 'pull succeeded'; exit 0;
+         fi;
+         echo 'pull failed, retrying in 10s...'; sleep 10;
+       done;
+       echo 'ollama pull failed after 5 attempts'; exit 1"
     environment:
       OLLAMA_HOST: "http://ollama:11434"
     restart: "no"

@@ -70,7 +70,13 @@ async def check_redis() -> dict:
 
 
 async def check_firecrawl() -> dict:
-    """Check Firecrawl service availability with ``GET /``."""
+    """Check Firecrawl service availability with ``GET /``.
+
+    Firecrawl is optional — when ``FIRECRAWL_BASE_URL`` is unset we return
+    ``{"status": "skipped"}`` instead of treating absence as an error.
+    """
+    if not settings.FIRECRAWL_BASE_URL:
+        return {"status": "skipped", "reason": "FIRECRAWL_BASE_URL not configured"}
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
             start = time.monotonic()
@@ -131,7 +137,7 @@ async def check_health() -> dict:
         "ollama": await check_ollama(),
     }
 
-    all_ok = all(c["status"] == "ok" for c in checks.values())
+    all_ok = all(c["status"] in ("ok", "skipped") for c in checks.values())
     overall = "healthy" if all_ok else "degraded"
 
     return {
