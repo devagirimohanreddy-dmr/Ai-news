@@ -1,5 +1,43 @@
 services:
   # ---------------------------------------------------------------------------
+  # One-shot migration runner.
+  # Runs `alembic upgrade head` against Postgres and exits 0 when done.
+  # The `app` and `celery-worker` services wait for this to complete
+  # successfully before they start, guaranteeing the schema is in place.
+  # ---------------------------------------------------------------------------
+  migrator:
+    build: .
+    command: alembic upgrade head
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./alembic:/app/alembic
+      - ./src:/app/src
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # One-shot LLM model puller.
+  # Waits for Ollama to be ready, then pulls llama3.2:3b once and exits.
+  # The model lives on the `ollama_data` volume so re-runs are cheap.
+  # ---------------------------------------------------------------------------
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "until ollama list >/dev/null 2>&1; do
+         echo 'waiting for ollama to be ready...'; sleep 2;
+       done;
+       ollama pull llama3.2:3b"
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
   # FastAPI application server
   # ---------------------------------------------------------------------------
   app:
@@ -12,6 +50,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -21,6 +61,7 @@ services:
     volumes:
       - ./src:/app/src  # dev hot reload
       - ./alembic:/app/alembic  # dev migrations
+    restart: unless-stopped
 
   # ---------------------------------------------------------------------------
   # Celery worker with embedded beat scheduler
@@ -34,8 +75,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     volumes:
       - ./src:/app/src
+    restart: unless-stopped
 
   # ---------------------------------------------------------------------------
   # PostgreSQL 16
@@ -56,6 +100,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   # ---------------------------------------------------------------------------
   # Redis 7
@@ -71,6 +116,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   # ---------------------------------------------------------------------------
   # Ollama — local LLM inference
@@ -81,6 +127,7 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    restart: unless-stopped
 
 volumes:
   postgres_data:

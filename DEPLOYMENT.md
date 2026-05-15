@@ -221,29 +221,25 @@ docker compose ps
 
 Expected output: 5 containers, all `State = running`, and `app` + `postgres` + `redis` showing `(healthy)`.
 
-### Step 4.5 — Run database migrations
+### Step 4.5 — Database migrations and model pull (now automatic)
 
-The PostgreSQL container starts empty. Create the schema:
+**These steps run automatically when you `docker compose up -d`.**
+
+Two helper services in the compose file handle this:
+
+- **`migrator`** — runs `alembic upgrade head` once and exits. The `app` and `celery-worker` containers wait for this to complete successfully before they start. So the schema is always in place before the API serves traffic.
+- **`ollama-init`** — waits for Ollama to be reachable, then runs `ollama pull llama3.2:3b` once. The model is cached on the `ollama_data` volume, so re-runs are instant.
+
+After `docker compose up -d`, both helper services run, then exit. The main services then start with all dependencies satisfied. **No manual `alembic` or `ollama pull` command needed.**
+
+If you want to verify they ran successfully:
 
 ```bash
-docker compose exec app alembic upgrade head
+docker compose ps                              # migrator and ollama-init should show "exited (0)"
+docker compose logs migrator                   # shows migration output
+docker compose logs ollama-init                # shows model download output
+docker compose exec ollama ollama list         # confirms model is present
 ```
-
-Expected output: a series of `INFO  [alembic.runtime.migration] Running upgrade ...` lines ending with the latest revision `0004`.
-
-### Step 4.6 — Pull the local LLM model
-
-The Ollama container needs the `llama3.2:3b` model. This is a one-time ~2 GB download:
-
-```bash
-docker compose exec ollama ollama pull llama3.2:3b
-```
-
-Expect a progress bar. When it finishes, verify:
-```bash
-docker compose exec ollama ollama list
-```
-You should see `llama3.2:3b` listed.
 
 ### Step 4.7 — Verify the backend is healthy
 
@@ -618,16 +614,18 @@ sudo chown -R $USER:$USER ainews
 cd ainews
 cp /path/to/production/.env .env
 chmod 600 .env
+
+# Single command brings up everything — migrations + model pull happen automatically
 docker compose up -d
-docker compose exec app alembic upgrade head
-docker compose exec ollama ollama pull llama3.2:3b
+
+# Wait ~3 minutes (Ollama model download is the long part) then verify
 curl http://localhost:8080/health
 
 # Then configure Caddy/Cloudflare-Tunnel/your-LB to point HTTPS at port 8080
 # Then update the Power Automate flow's RSS URL to the new public hostname
 ```
 
-That's the whole deployment.
+That's the whole deployment — one command, zero manual steps.
 
 ---
 
