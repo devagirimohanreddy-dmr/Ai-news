@@ -573,12 +573,15 @@ Use these to verify pieces of the pipeline are working without browsing the dash
 
 | URL | Purpose |
 |---|---|
-| `https://<host>/admin/` | Admin dashboard |
-| `https://<host>/health` | Health check (used by load balancers) |
+| `https://<host>/` | **Redirects to `/admin/`** — the dashboard |
+| `https://<host>/admin/` | Admin dashboard (overview page) |
+| `https://<host>/health` | Health check (used by load balancers) — returns JSON |
 | `https://<host>/admin/api/teams/feed.rss?token=<TOKEN>` | RSS feed for Power Automate |
 | `https://<host>/admin/api/articles` | Articles JSON API |
 | `https://<host>/admin/api/sources` | Sources JSON API |
 | `https://<host>/admin/api/stats` | Dashboard stats |
+
+> **Note:** The dashboard lives under the `/admin/` path prefix. Hitting the bare hostname (e.g. `https://<host>/`) issues a redirect to `/admin/`. If a team member hits the root URL directly with `curl -I` or a similar HEAD request, they'll see a 405 — that's normal (the redirect handler is GET-only). A normal browser GET works correctly.
 
 ### Required environment variables (`.env`)
 
