@@ -1,7 +1,7 @@
 # AI News Aggregator — Microsoft Teams Integration
 
 **Project documentation**
-**Author:** Pranavi Redla
+**Author:** Pranavi Sambari
 **Last updated:** 13 May 2026
 **Status:** Functional end-to-end. Awaiting production hosting.
 
